@@ -37,13 +37,15 @@ const codVeiculos = [{
   const body = {
     montadora: brands[0].Label,
     modelo: models.Modelos[0].Label,
+    litragem: parseFloat(models.Modelos[0].Label.match(/([0-9]\.[0-9])/gmi).join()),
     tipo: codVeiculos[0].nome,
     fabricacao: [{
-      ano: modelsYears[0].Value.split('-')[0],
+      ano: Number(modelsYears[0].Value.split('-')[0]),
       combustivel: modelsYears[0].Value.split('-')[1],
       referencia: [{
         mes: months[0].Mes.split('/')[0],
-        ano: months[0].Mes.split('/')[1],
+        mesId: new Date().getMonth() + 1,
+        ano: Number(months[0].Mes.split('/')[1]),
         valor: Number(fipePrice.Valor.match(/\d/gmi).join(""))
       }]
     }]
