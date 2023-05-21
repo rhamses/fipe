@@ -2,15 +2,19 @@
 import requests
 import os
 import json
-from slugify import slugify
-from google.cloud import storage
-from threading import Thread
+import threading
+import queue
 import time
 import sys
 import multiprocessing
+from slugify import slugify
+from google.cloud import storage
+#from threading import Thread
 
 NUM_PROC_VH = 3
 NUM_PROC_AN = 5
+
+q = queue.Queue()
 
 def readFileFromGoogle(file, data):
   client = storage.Client(project='amb1-fipe')
@@ -75,7 +79,7 @@ def getAnos():
   uploadToGoogle("anos", result)
   return result
 
-def getMarcas(codigoTabelaReferencia, codigoTipoVeiculo, anos):
+def getMarcas(codigoTabelaReferencia, codigoTipoVeiculo, anos = None):
   url = "https://veiculos.fipe.org.br/api/veiculos/ConsultarMarcas"
   data = {
     'codigoTabelaReferencia': codigoTabelaReferencia,
@@ -84,19 +88,19 @@ def getMarcas(codigoTabelaReferencia, codigoTipoVeiculo, anos):
   result = requests.post(url, data = data)
   if(result.status_code == 200):
     result = result.json()
-    folder = checkFolder(
-      codigoTabelaReferencia=codigoTabelaReferencia, 
-      anos=anos
-    )
+    # folder = checkFolder(
+    #   codigoTabelaReferencia=codigoTabelaReferencia, 
+    #   anos=anos
+    # )
     # data = open(folder + "/_marcas.json", "a")
     # data.write(json.dumps(result))
-    uploadToGoogle(folder, result, '_marcas.json')
+    # uploadToGoogle(folder, result, '_marcas.json')
   else:
     readFileFromGoogle("errors.txt", data)
     result = None
   return result
 
-def getModelos(codigoTipoVeiculo, codigoTabelaReferencia, codigoMarca, anos):
+def getModelos(codigoTipoVeiculo, codigoTabelaReferencia, codigoMarca, anos=None):
   url = "https://veiculos.fipe.org.br/api/veiculos/ConsultarModelos"
   data = {
     'codigoTabelaReferencia': codigoTabelaReferencia,
@@ -106,24 +110,14 @@ def getModelos(codigoTipoVeiculo, codigoTabelaReferencia, codigoMarca, anos):
   result = requests.post(url, data = data)
   if(result.status_code == 200):
     result = result.json()
-    # Get Years from Modelos
-    for index, modelo in enumerate(result['Modelos']):
-      item = getModelosAno(
-        codigoTipoVeiculo=codigoTipoVeiculo, 
-        codigoTabelaReferencia=codigoTabelaReferencia, 
-        codigoMarca=codigoMarca, 
-        codigoModelo=modelo['Value']
-      )
-      result['Modelos'][index]["Years"] = item
-      result['Modelos'][index]["Brand"] = codigoMarca
     ## FOLDER
-    folder = checkFolder(
-      codigoTabelaReferencia=codigoTabelaReferencia, 
-      anos=anos
-    )
+    # folder = checkFolder(
+    #   codigoTabelaReferencia=codigoTabelaReferencia, 
+    #   anos=anos
+    # )
     # data = open(folder + "/_modelos.json", "a")
     # data.write(json.dumps(result))
-    uploadToGoogle(folder, result, "_modelos.json")
+    # uploadToGoogle(folder, result, "_modelos.json")
     result = result['Modelos']
   else:
     readFileFromGoogle("errors.txt", data)
@@ -163,18 +157,6 @@ def getPrice(codigoMarca, codigoModelo, codigoTabelaReferencia, codigoTipoCombus
     del result['DataConsulta']
     del result['Autenticacao']
     del result['MesReferencia']
-    # Folder
-    folder = checkFolder(
-      codigoTabelaReferencia = codigoTabelaReferencia, 
-      anos = anos,
-      marca = result["Marca"],
-      modelo = result["Modelo"],
-      modeloAno = result["AnoModelo"],
-      combustivel = result["Combustivel"]
-    )
-    # data = open(folder + "/index.json", "w")
-    # data.write(json.dumps(result))
-    uploadToGoogle(folder, result)
   else:
     readFileFromGoogle("errors.txt", data)
     result = None
@@ -236,16 +218,135 @@ def init(vehicle):
         "codigoTabelaReferencia": codigoTabelaReferencia
       })
 
+def closeQueueStartProcess(qz, target):
+  # Adding breaking Item 
+  qz.put(None)
+  # Spawning Process
+  process = multiprocessing.Process(target=target, args=(qz,))
+  # Start Process
+  process.start()
+
+def consumeModeloDetailsProvidePrice(qx):
+  while True:
+    item = qx.get()
+    if(item is None):
+      break
+    ## SPAWN PROCESS PRICE
+    for year in item['Years']:
+      price = getPrice(
+        codigoMarca=item['codigoMarca'],
+        codigoModelo=modelo['Value'],
+        codigoTabelaReferencia=item['codigoTabelaReferencia'],
+        codigoTipoCombustivel=year['Value'].split("-")[1],
+        codigoTipoVeiculo=item['codigoTipoVeiculo'],
+        anoModelo=year['Value'].split("-")[0],
+        anos=anos
+      )
+      if(price is not None):
+        # Folder
+        folder = checkFolder(
+          codigoTabelaReferencia = item['codigoTabelaReferencia'], 
+          anos = anos,
+          marca = price["Marca"],
+          modelo = price["Modelo"],
+          modeloAno = price["AnoModelo"],
+          combustivel = price["Combustivel"]
+        )
+        uploadToGoogle(folder, price)
+        print(price)
+
+def consumeModeloProvidePrice(qx):
+  while True:
+    item = qx.get()
+    if(item is None):
+      break
+    ## WRITE FILE TO GOOGLE
+    folder = checkFolder(
+      codigoTabelaReferencia=item['codigoTabelaReferencia'], 
+      anos=anos
+    )
+    uploadToGoogle(folder, item['modelos'], "_modelos.json")
+    ## SPAWN MORE PROCESS FOR MODELS DETAILS
+    queueModeloDetail = multiprocessing.Queue()
+    for index, modelo in enumerate(item['modelos']):
+      details = getModelosAno(
+        codigoTipoVeiculo=item['codigoTipoVeiculo'], 
+        codigoTabelaReferencia=item['codigoTabelaReferencia'], 
+        codigoMarca=item['codigoMarca'], 
+        codigoModelo=modelo['Value']
+      )
+      if details is not None:
+        if "erro" not in details:
+          # item['modelos'][index]["Years"] = details
+          # item['modelos'][index]["Brand"] = codigoMarca
+          obj = {
+            "modelo": modelo, 
+            "codigoTabelaReferencia": ano['Codigo'],
+            "codigoTipoVeiculo": codigoTipoVeiculo,
+            "codigoMarca": marca['Value'],
+            "years": details
+          }
+          queueModeloDetail.put(obj)
+    closeQueueStartProcess(queueModeloDetail, consumeModeloDetailsProvidePrice)
+
+def consumeMarcaProvideModelos(qx):
+  while True:
+    item = qx.get()
+    if(item is None):
+      break
+    ## WRITE FILE TO GOOGLE
+    folder = checkFolder(
+      codigoTabelaReferencia=item['codigoTabelaReferencia'], 
+      anos=anos
+    )
+    data = open(folder + "/_marcas.json", "a")
+    data.write(json.dumps(item['marcas']))
+    uploadToGoogle(folder, item['marcas'], '_marcas.json')
+    ## SPAWN MORE PROCESS FOR MODELS
+    queueModelo = multiprocessing.Queue()
+    for marca in item['marcas']:
+      modelos = getModelos(
+        codigoTipoVeiculo=item['codigoTipoVeiculo'], 
+        codigoTabelaReferencia=item['codigoTabelaReferencia'], 
+        codigoMarca=marca['Value']
+      )
+      if modelos is not None:
+        if "erro" not in modelos:
+          obj = {
+            "modelos": modelos, 
+            "codigoTabelaReferencia": ano['Codigo'],
+            "codigoTipoVeiculo": codigoTipoVeiculo,
+            "codigoMarca": marca['Value']
+          }
+          queueModelo.put(obj)
+    closeQueueStartProcess(queueModelo, consumeModeloProvideModeloDetails)
+
 if __name__ == "__main__":
-  vh = [1,2,3]
-  jobs = []
-  for v in vh:
-    process = multiprocessing.Process(
-			target=init, 
-      args=(str(v))
-		)
-    jobs.append(process)
-  for job in jobs:
-    job.start()
-  for job in jobs:
-    job.join()
+  vehicles = [1,2,3]
+  anos = getAnos()
+  for ano in anos:
+    queueMarca = multiprocessing.Queue()
+    for codigoTipoVeiculo in vehicles:
+      marcas = getMarcas(
+        codigoTabelaReferencia=ano['Codigo'],
+        codigoTipoVeiculo=codigoTipoVeiculo
+      )
+      if marcas is not None:
+        if "erro" not in marcas:
+          obj = {
+            "marcas": marcas, 
+            "codigoTabelaReferencia": ano['Codigo'],
+            "codigoTipoVeiculo": codigoTipoVeiculo
+          }
+          queueMarca.put(obj)
+    closeQueueStartProcess(queueMarca, consumeMarcaProvideModelos)
+
+  #### SCOPES
+  #
+  # 0. Veiculos
+  # 1. Anos
+  # 2. Marcas
+  # 3. Modelos => 
+  # 4. Modelos Detalhes => 
+  # 5. Price => 
+  #
