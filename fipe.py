@@ -1,38 +1,63 @@
 #!/usr/bin/env python3
 import requests
-import os
+# import os
 import json
-import threading
-import queue
-import time
-import sys
-import multiprocessing
+# import sys
+# import threading
+# import queue
+# import time
+# import sys
+# import multiprocessing
 from slugify import slugify
 from google.cloud import storage
 #from threading import Thread
 
-NUM_PROC_VH = 3
-NUM_PROC_AN = 5
+def readFileFromGoogle(file):
+  try:
+    client = storage.Client(project='amb1-fipe')
+    bucket = client.get_bucket("fipe-storage")
+    blob = bucket.blob(file)
+    with blob.open("r") as f:
+      content = f.read()
+      if ".json" in file:
+        return json.loads(content)
+      else:
+        return content
+  except:
+    return False
 
-q = queue.Queue()
-
-def readFileFromGoogle(file, data):
-  client = storage.Client(project='amb1-fipe')
-  bucket = client.get_bucket("fipe-storage")
-  blob = bucket.blob(file)
-  content = ''
-  with blob.open("r") as f:
-    content = f.read()
-    with blob.open("w") as f:
-      content = content + "\n"+ json.dumps(data)
-      f.write(content)
-  return True
+def appendFileFromGoogle(file, data):
+  try:
+    client = storage.Client(project='amb1-fipe')
+    bucket = client.get_bucket("fipe-storage")
+    blob = bucket.blob(file)
+    content = ''
+    with blob.open("r") as f:
+      content = f.read()
+      with blob.open("w") as f:
+        if ".json" in file:
+          content = json.loads(content)
+          content.append(data[0])
+          f.write(json.dumps(content))
+        elif ".txt" in file:
+          content = content + "\n"+ json.dumps(data)
+          f.write(content)
+    return True
+  except:
+    return uploadToGoogle(file, data)
 
 def uploadToGoogle(folder, data, fileName = "index.json"):
-  client = storage.Client(project='amb1-fipe')
-  bucket = client.get_bucket("fipe-storage")
-  blob = bucket.blob(folder + "/" + fileName)
-  result = blob.upload_from_string(json.dumps(data), content_type='application/json;charset=UTF-8')
+  try:
+    if ".json" in fileName:
+      contentType = "application/json;charset=UTF-8"
+    elif ".txt" in fileName:
+      contentType = "text/plain"
+    client = storage.Client(project='amb1-fipe')
+    bucket = client.get_bucket("fipe-storage")
+    blob = bucket.blob(folder)
+    result = blob.upload_from_string(json.dumps(data), content_type=contentType)
+  except:
+    return False
 
 def checkFolder(codigoTabelaReferencia, anos, marca = None, modelo = None, modeloAno = None, combustivel = None):
   mes = getMes(
@@ -42,33 +67,34 @@ def checkFolder(codigoTabelaReferencia, anos, marca = None, modelo = None, model
   folder = False
   if(mes is not None):
     folder = slugify(mes.split("/")[1])
-    if(os.path.isdir(folder) == False):
-      os.mkdir(folder)
+    # if(os.path.isdir(folder) == False):
+    #   os.mkdir(folder)
     folder += "/" + slugify(mes.split("/")[0])
-    if(os.path.isdir(folder) == False):
-      os.mkdir(folder)
+    # if(os.path.isdir(folder) == False):
+    #   os.mkdir(folder)
   if(marca is not None):
     folder += "/" + slugify(marca)
-    if(os.path.isdir(folder) == False):
-      os.mkdir(folder)
+    # if(os.path.isdir(folder) == False):
+    #   os.mkdir(folder)
   if(modelo is not None):
     folder += "/" + slugify(modelo)
-    if(os.path.isdir(folder) == False):
-      os.mkdir(folder)
+    # if(os.path.isdir(folder) == False):
+    #   os.mkdir(folder)
   if(modeloAno is not None):
     folder += "/" + slugify(str(modeloAno))
-    if(os.path.isdir(folder) == False):
-      os.mkdir(folder)
+    # if(os.path.isdir(folder) == False):
+    #   os.mkdir(folder)
   if(combustivel is not None):
     folder += "/" + slugify(combustivel)
-    if(os.path.isdir(folder) == False):
-      os.mkdir(folder)
+    # if(os.path.isdir(folder) == False):
+    #   os.mkdir(folder)
   return folder
 
 def getMes(codigoTabelaReferencia, anos):
   for ano in anos:
-    if(ano['Codigo'] == codigoTabelaReferencia):
-      return ano['Mes']
+    if(ano is not None):
+      if(ano['Codigo'] == codigoTabelaReferencia):
+        return ano['Mes']
 
 def getAnos():
   result = requests.post("https://veiculos.fipe.org.br/api/veiculos/ConsultarTabelaDeReferencia")
@@ -88,15 +114,8 @@ def getMarcas(codigoTabelaReferencia, codigoTipoVeiculo, anos = None):
   result = requests.post(url, data = data)
   if(result.status_code == 200):
     result = result.json()
-    # folder = checkFolder(
-    #   codigoTabelaReferencia=codigoTabelaReferencia, 
-    #   anos=anos
-    # )
-    # data = open(folder + "/_marcas.json", "a")
-    # data.write(json.dumps(result))
-    # uploadToGoogle(folder, result, '_marcas.json')
   else:
-    readFileFromGoogle("errors.txt", data)
+    appendFileFromGoogle("errors.txt", data)
     result = None
   return result
 
@@ -110,17 +129,9 @@ def getModelos(codigoTipoVeiculo, codigoTabelaReferencia, codigoMarca, anos=None
   result = requests.post(url, data = data)
   if(result.status_code == 200):
     result = result.json()
-    ## FOLDER
-    # folder = checkFolder(
-    #   codigoTabelaReferencia=codigoTabelaReferencia, 
-    #   anos=anos
-    # )
-    # data = open(folder + "/_modelos.json", "a")
-    # data.write(json.dumps(result))
-    # uploadToGoogle(folder, result, "_modelos.json")
     result = result['Modelos']
   else:
-    readFileFromGoogle("errors.txt", data)
+    appendFileFromGoogle("errors.txt", data)
     result = None
   return result
 
@@ -136,11 +147,11 @@ def getModelosAno(codigoTipoVeiculo, codigoTabelaReferencia, codigoMarca, codigo
   if(result.status_code == 200):
     result = result.json()
   else:
-    readFileFromGoogle("errors.txt", data)
+    appendFileFromGoogle("errors.txt", data)
     result = None
   return result
 
-def getPrice(codigoMarca, codigoModelo, codigoTabelaReferencia, codigoTipoCombustivel, codigoTipoVeiculo, anoModelo, anos):
+def getPrice(codigoMarca, codigoModelo, codigoTabelaReferencia, codigoTipoCombustivel, codigoTipoVeiculo, anoModelo):
   url = "https://veiculos.fipe.org.br/api/veiculos/ConsultarValorComTodosParametros"
   data = {
     "codigoMarca": codigoMarca,
@@ -158,7 +169,7 @@ def getPrice(codigoMarca, codigoModelo, codigoTabelaReferencia, codigoTipoCombus
     del result['Autenticacao']
     del result['MesReferencia']
   else:
-    readFileFromGoogle("errors.txt", data)
+    appendFileFromGoogle("errors.txt", data)
     result = None
   return result
 
@@ -198,155 +209,171 @@ def init(vehicle):
                   anos=anos
                 )
             else:
-              readFileFromGoogle("errors.txt", {
+              appendFileFromGoogle("errors.txt", {
                 "scope": "loadPrice",
                 "codigoTipoVeiculo": vehicle,
                 "codigoTabelaReferencia": ano['Codigo'], 
                 "codigoMarca": marca['Value']
               })
         else:
-          readFileFromGoogle("errors.txt", {
+          appendFileFromGoogle("errors.txt", {
             "scope": "loadModelos",
             "codigoTipoVeiculo": codigoTipoVeiculo, 
             "codigoTabelaReferencia": codigoTabelaReferencia, 
             "codigoMarca": marca['Value'],
           })
     else:
-      readFileFromGoogle("errors.txt", {
+      appendFileFromGoogle("errors.txt", {
         "scope": "loadMarcas",
         "codigoTipoVeiculo": codigoTipoVeiculo, 
         "codigoTabelaReferencia": codigoTabelaReferencia
       })
 
-def closeQueueStartProcess(qz, target):
-  # Adding breaking Item 
-  qz.put(None)
-  # Spawning Process
-  process = multiprocessing.Process(target=target, args=(qz,))
-  # Start Process
-  process.start()
-
-def consumeModeloDetailsProvidePrice(qx):
-  while True:
-    item = qx.get()
-    if(item is None):
-      break
-    ## SPAWN PROCESS PRICE
-    for year in item['Years']:
-      price = getPrice(
-        codigoMarca=item['codigoMarca'],
-        codigoModelo=modelo['Value'],
-        codigoTabelaReferencia=item['codigoTabelaReferencia'],
-        codigoTipoCombustivel=year['Value'].split("-")[1],
-        codigoTipoVeiculo=item['codigoTipoVeiculo'],
-        anoModelo=year['Value'].split("-")[0],
-        anos=anos
-      )
-      if(price is not None):
-        # Folder
-        folder = checkFolder(
-          codigoTabelaReferencia = item['codigoTabelaReferencia'], 
-          anos = anos,
-          marca = price["Marca"],
-          modelo = price["Modelo"],
-          modeloAno = price["AnoModelo"],
-          combustivel = price["Combustivel"]
-        )
-        uploadToGoogle(folder, price)
-        print(price)
-
-def consumeModeloProvidePrice(qx):
-  while True:
-    item = qx.get()
-    if(item is None):
-      break
-    ## WRITE FILE TO GOOGLE
-    folder = checkFolder(
-      codigoTabelaReferencia=item['codigoTabelaReferencia'], 
-      anos=anos
-    )
-    uploadToGoogle(folder, item['modelos'], "_modelos.json")
-    ## SPAWN MORE PROCESS FOR MODELS DETAILS
-    queueModeloDetail = multiprocessing.Queue()
-    for index, modelo in enumerate(item['modelos']):
-      details = getModelosAno(
-        codigoTipoVeiculo=item['codigoTipoVeiculo'], 
-        codigoTabelaReferencia=item['codigoTabelaReferencia'], 
-        codigoMarca=item['codigoMarca'], 
-        codigoModelo=modelo['Value']
-      )
-      if details is not None:
-        if "erro" not in details:
-          # item['modelos'][index]["Years"] = details
-          # item['modelos'][index]["Brand"] = codigoMarca
-          obj = {
-            "modelo": modelo, 
-            "codigoTabelaReferencia": ano['Codigo'],
-            "codigoTipoVeiculo": codigoTipoVeiculo,
-            "codigoMarca": marca['Value'],
-            "years": details
-          }
-          queueModeloDetail.put(obj)
-    closeQueueStartProcess(queueModeloDetail, consumeModeloDetailsProvidePrice)
-
-def consumeMarcaProvideModelos(qx):
-  while True:
-    item = qx.get()
-    if(item is None):
-      break
-    ## WRITE FILE TO GOOGLE
-    folder = checkFolder(
-      codigoTabelaReferencia=item['codigoTabelaReferencia'], 
-      anos=anos
-    )
-    data = open(folder + "/_marcas.json", "a")
-    data.write(json.dumps(item['marcas']))
-    uploadToGoogle(folder, item['marcas'], '_marcas.json')
-    ## SPAWN MORE PROCESS FOR MODELS
-    queueModelo = multiprocessing.Queue()
-    for marca in item['marcas']:
-      modelos = getModelos(
-        codigoTipoVeiculo=item['codigoTipoVeiculo'], 
-        codigoTabelaReferencia=item['codigoTabelaReferencia'], 
-        codigoMarca=marca['Value']
-      )
-      if modelos is not None:
-        if "erro" not in modelos:
-          obj = {
-            "modelos": modelos, 
-            "codigoTabelaReferencia": ano['Codigo'],
-            "codigoTipoVeiculo": codigoTipoVeiculo,
-            "codigoMarca": marca['Value']
-          }
-          queueModelo.put(obj)
-    closeQueueStartProcess(queueModelo, consumeModeloProvideModeloDetails)
+def isModelExists(codigoMarca, codigoModelo, codigoTabelaReferencia, codigoTipoVeiculo):
+  # print("chamou", codigoMarca, codigoModelo, codigoTabelaReferencia, codigoTipoVeiculo)
+  uploadedFiles = readFileFromGoogle("done.json")
+  if uploadedFiles is not False:
+    for item in uploadedFiles:
+      if(
+          int(item['codigoMarca']) == int(codigoMarca) and
+          int(item['codigoModelo']) == int(codigoModelo) and
+          int(item['codigoTabelaReferencia']) == int(codigoTabelaReferencia) and
+          int(item['codigoTipoVeiculo']) == int(codigoTipoVeiculo)
+        ):
+        # print("repetiu", codigoMarca, codigoModelo, codigoTabelaReferencia)
+        return False
 
 if __name__ == "__main__":
   vehicles = [1,2,3]
   anos = getAnos()
   for ano in anos:
-    queueMarca = multiprocessing.Queue()
-    for codigoTipoVeiculo in vehicles:
-      marcas = getMarcas(
-        codigoTabelaReferencia=ano['Codigo'],
-        codigoTipoVeiculo=codigoTipoVeiculo
-      )
-      if marcas is not None:
-        if "erro" not in marcas:
-          obj = {
-            "marcas": marcas, 
+    if(ano is not None):
+      for codigoTipoVeiculo in vehicles:
+        marcas = getMarcas(
+          codigoTabelaReferencia=ano['Codigo'],
+          codigoTipoVeiculo=codigoTipoVeiculo
+        )
+        print({
+          "codigoTabelaReferencia": ano['Codigo'],
+          "codigoTipoVeiculo": codigoTipoVeiculo
+        })
+        if marcas is not None and "erro" not in marcas:
+          ## WRITE MARCAS FROM EACH MONTH
+          folder = checkFolder(ano['Codigo'], anos) + "/_marcas.json"
+          appendFileFromGoogle(folder, marcas)
+          ## LOOP MARCAS
+          for marca in marcas:
+            modelos = getModelos(
+              codigoTipoVeiculo=codigoTipoVeiculo, 
+              codigoTabelaReferencia=ano['Codigo'], 
+              codigoMarca=marca['Value']
+            )
+            if modelos is not None and "erro" not in modelos:
+              ## WRITE MODELOS FROM EACH MONTH
+              folder = checkFolder(ano['Codigo'], anos) + "/_modelos.json"
+              appendFileFromGoogle(folder, modelos)
+              ## LOOP MODELOS TO RETRIEVE MODELO YEARS
+              for modelo in modelos:
+                ## CHECK IF THIS MODEL HAS ALREADY BEEN UPLOADED
+                if(isModelExists(
+                  codigoMarca=marca['Value'],
+                  codigoModelo=modelo['Value'],
+                  codigoTabelaReferencia=ano['Codigo'],
+                  codigoTipoVeiculo=codigoTipoVeiculo
+                ) is not False):
+                  ## CONTINUE LOOP
+                  years = getModelosAno(
+                    codigoTipoVeiculo=codigoTipoVeiculo, 
+                    codigoTabelaReferencia=ano['Codigo'], 
+                    codigoMarca=marca['Value'],
+                    codigoModelo=modelo['Value']
+                  )
+                  if years is not None and "erro" not in years:
+                    ## LOOP MODELO YEARS TO RETRIEVE FOR PRICE
+                    for year in years:
+                      price = getPrice(
+                        codigoMarca=marca['Value'],
+                        codigoModelo=modelo['Value'],
+                        codigoTabelaReferencia=ano['Codigo'],
+                        codigoTipoCombustivel=year['Value'].split("-")[1],
+                        codigoTipoVeiculo=codigoTipoVeiculo,
+                        anoModelo=year['Value'].split("-")[0]
+                      )
+                      if price is not None and "erro" not in price:
+                        folder = checkFolder(
+                          codigoTabelaReferencia = ano['Codigo'], 
+                          anos = anos,
+                          marca = price["Marca"],
+                          modelo = price["Modelo"],
+                          modeloAno = price["AnoModelo"],
+                          combustivel = price["Combustivel"]
+                        )
+                        uploadToGoogle(folder, price)
+                        ## WRITE DONE.TXT
+                        appendFileFromGoogle("done.json", [{
+                          "codigoMarca": marca['Value'],
+                          "codigoModelo": modelo['Value'],
+                          "codigoTabelaReferencia": ano['Codigo'],
+                          "codigoTipoCombustivel": year['Value'].split("-")[1],
+                          "codigoTipoVeiculo": codigoTipoVeiculo,
+                          "anoModelo": year['Value'].split("-")[0]
+                        }])
+                        # print("price done")
+                      else:
+                        print({
+                          "scope": "price",
+                          "codigoTabelaReferencia": ano['Codigo'],
+                          "codigoTipoVeiculo": codigoTipoVeiculo,
+                          "codigoMarca": marca['Value'],
+                          "codigoModelo": modelo['Value'],
+                          "codigoTipoCombustivel": year['Value'].split("-")[1],
+                          "anoModelo": year['Value'].split("-")[0]
+                        })
+                        appendFileFromGoogle("erros.txt", {
+                          "scope": "price",
+                          "codigoTabelaReferencia": ano['Codigo'],
+                          "codigoTipoVeiculo": codigoTipoVeiculo,
+                          "codigoMarca": marca['Value'],
+                          "codigoModelo": modelo['Value'],
+                          "codigoTipoCombustivel": year['Value'].split("-")[1],
+                          "anoModelo": year['Value'].split("-")[0]
+                        })
+                  else:
+                    print({
+                      "scope": "years",
+                      "codigoTabelaReferencia": ano['Codigo'],
+                      "codigoTipoVeiculo": codigoTipoVeiculo,
+                      "codigoMarca": marca['Value'],
+                      "codigoModelo": modelo['Value']
+                    })
+                    appendFileFromGoogle("erros.txt", {
+                      "scope": "years",
+                      "codigoTabelaReferencia": ano['Codigo'],
+                      "codigoTipoVeiculo": codigoTipoVeiculo,
+                      "codigoMarca": marca['Value'],
+                      "codigoModelo": modelo['Value']
+                    })
+            else:
+              print({
+                "scope": "modelos",
+                "codigoTabelaReferencia": ano['Codigo'],
+                "codigoTipoVeiculo": codigoTipoVeiculo,
+                "codigoMarca": marca['Value']
+              })
+              appendFileFromGoogle("erros.txt", {
+                "scope": "modelos",
+                "codigoTabelaReferencia": ano['Codigo'],
+                "codigoTipoVeiculo": codigoTipoVeiculo,
+                "codigoMarca": marca['Value']
+              })
+        else:
+          print({
+            "scope": "marcas",
             "codigoTabelaReferencia": ano['Codigo'],
             "codigoTipoVeiculo": codigoTipoVeiculo
-          }
-          queueMarca.put(obj)
-    closeQueueStartProcess(queueMarca, consumeMarcaProvideModelos)
-
-  #### SCOPES
-  #
-  # 0. Veiculos
-  # 1. Anos
-  # 2. Marcas
-  # 3. Modelos => 
-  # 4. Modelos Detalhes => 
-  # 5. Price => 
-  #
+          })
+          appendFileFromGoogle("erros.txt", {
+            "scope": "marcas",
+            "codigoTabelaReferencia": ano['Codigo'],
+            "codigoTipoVeiculo": codigoTipoVeiculo
+          })
