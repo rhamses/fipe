@@ -1,3 +1,5 @@
+sudo apt update -y
+sudo apt upgrade -y
 echo "Instalando o PIP"
 sudo apt install python3-pip -y
 echo "Instalando dependencias"
