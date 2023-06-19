@@ -128,33 +128,59 @@ def mapAnos(ano):
   if(ano is not None and ano['Codigo'] <= doneFile['codigoTabelaReferencia']):
     return ano
 
+def mapMarcas(marcas):
+  for index, marca in enumerate(marcas):
+    if(marca is not None and int(marca['Value']) != int(doneFile['codigoMarca'])):
+      marcas[index] = None
+    else:
+      break
+  return marcas
+
+def mapModelos(modelos):
+  for index, modelo in enumerate(modelos):
+    if(modelo is not None and int(modelo['Value']) != int(doneFile['codigoModelo'])):
+      modelos[index] = None
+    else:
+      break
+  return modelos
+
 
 def getAnos(doneFile):
   if(doneFile is not False):
     anosFile = checkFile("anos.json")
-    doneFile = map(mapAnos, anosFile)
-    result = list(doneFile)
+    newDoneFile = map(mapAnos, anosFile)
+    result = list(newDoneFile)
   else:
     result = requests.post("https://veiculos.fipe.org.br/api/veiculos/ConsultarTabelaDeReferencia")
     result = result.json()
   appendFileFromGoogle("anos.json", result, "w")
   return result
 
-def getMarcas(codigoTabelaReferencia, codigoTipoVeiculo):
-  url = "https://veiculos.fipe.org.br/api/veiculos/ConsultarMarcas"
-  data = {
-    'codigoTabelaReferencia': codigoTabelaReferencia,
-    'codigoTipoVeiculo': codigoTipoVeiculo
-  }
-  result = requests.post(url, data = data)
-  if(result.status_code == 200):
-    result = result.json()
+def getMarcas(codigoTabelaReferencia, codigoTipoVeiculo, anos):
+  if(doneFile is not False):
+    fileName = checkFile(checkFolder(codigoTabelaReferencia, anos) + "/_marcas.json")
+    fileNameFiltered = mapMarcas(fileName)
+    result = list(fileNameFiltered)
   else:
-    appendFileFromGoogle("errors.txt", data)
-    result = None
+    url = "https://veiculos.fipe.org.br/api/veiculos/ConsultarMarcas"
+    data = {
+      'codigoTabelaReferencia': codigoTabelaReferencia,
+      'codigoTipoVeiculo': codigoTipoVeiculo
+    }
+    result = requests.post(url, data = data)
+    if(result.status_code == 200):
+      result = result.json()
+    else:
+      appendFileFromGoogle("errors.txt", data)
+      result = None
   return result
 
 def getModelos(codigoTipoVeiculo, codigoTabelaReferencia, codigoMarca, anos=None):
+  # if(doneFile is not False):
+  #   fileName = checkFile(checkFolder(codigoTabelaReferencia, anos) + "/_modelos.json")
+  #   fileNameFiltered = mapModelos(fileName)
+  #   result = list(fileNameFiltered)
+  # else:
   url = "https://veiculos.fipe.org.br/api/veiculos/ConsultarModelos"
   data = {
     'codigoTabelaReferencia': codigoTabelaReferencia,
@@ -279,16 +305,16 @@ def isModelExists(codigoMarca, codigoModelo, codigoTabelaReferencia, codigoTipoV
     else:
       return False
 
-if __name__ == "__main__":
+def init():
   vehicles = [1,2,3]
-  doneFile = checkFile("done.json")
   anos = getAnos(doneFile=doneFile)
   for ano in anos:
     if(ano is not None):
       for codigoTipoVeiculo in vehicles:
         marcas = getMarcas(
           codigoTabelaReferencia=ano['Codigo'],
-          codigoTipoVeiculo=codigoTipoVeiculo
+          codigoTipoVeiculo=codigoTipoVeiculo,
+          anos=anos
         )
         if marcas is not None and "erro" not in marcas:
           ## WRITE MARCAS FROM EACH MONTH
@@ -296,96 +322,109 @@ if __name__ == "__main__":
           appendFileFromGoogle(folder, marcas)
           ## LOOP MARCAS
           for marca in marcas:
-            print({
-              "codigoTipoVeiculo": codigoTipoVeiculo, 
-              "codigoTabelaReferencia": ano['Codigo'], 
-              "codigoMarca": marca['Label']
-            })
-            modelos = getModelos(
-              codigoTipoVeiculo=codigoTipoVeiculo, 
-              codigoTabelaReferencia=ano['Codigo'], 
-              codigoMarca=marca['Value']
-            )
-            if modelos is not None and "erro" not in modelos:
-              ## WRITE MODELOS FROM EACH MONTH
-              folder = checkFolder(ano['Codigo'], anos) + "/_modelos.json"
-              appendFileFromGoogle(folder, modelos)
-              ## LOOP MODELOS TO RETRIEVE MODELO YEARS
-              for modelo in modelos:
-                ## CHECK IF THIS MODEL HAS ALREADY BEEN UPLOADED
-                # if(isModelExists(
-                #   codigoMarca=marca['Value'],
-                #   codigoModelo=modelo['Value'],
-                #   codigoTabelaReferencia=ano['Codigo'],
-                #   codigoTipoVeiculo=codigoTipoVeiculo
-                # ) is not False):
-                ## CONTINUE LOOP
-                years = getModelosAno(
-                  codigoTipoVeiculo=codigoTipoVeiculo, 
-                  codigoTabelaReferencia=ano['Codigo'], 
-                  codigoMarca=marca['Value'],
-                  codigoModelo=modelo['Value']
-                )
-                if years is not None and "erro" not in years:
-                  ## LOOP MODELO YEARS TO RETRIEVE FOR PRICE
-                  for year in years:
-                    price = getPrice(
+            if(marca is not None):
+              modelos = getModelos(
+                codigoTipoVeiculo=codigoTipoVeiculo, 
+                codigoTabelaReferencia=ano['Codigo'], 
+                codigoMarca=marca['Value'],
+                anos=anos
+              )
+              print({
+                "codigoTipoVeiculo": codigoTipoVeiculo, 
+                "codigoTabelaReferencia": ano['Codigo'], 
+                "codigoMarca": marca["Value"],
+                "nomeMarca": marca["Label"],
+                "totalModelos": len(modelos)
+              })
+              if modelos is not None and "erro" not in modelos:
+                ## WRITE MODELOS FROM EACH MONTH
+                folder = checkFolder(ano['Codigo'], anos) + "/_modelos.json"
+                appendFileFromGoogle(folder, modelos)
+                ## LOOP MODELOS TO RETRIEVE MODELO YEARS
+                for index, modelo in enumerate(modelos):
+                  # print({
+                  #   "codigoTipoVeiculo": codigoTipoVeiculo, 
+                  #   "codigoTabelaReferencia": ano['Codigo'], 
+                  #   "codigoMarca": marca['Label'],
+                  #   "codigoModelo": modelo['Value']
+                  # })
+                  if(modelo is not None):
+                    ## CONTINUE LOOP
+                    years = getModelosAno(
+                      codigoTipoVeiculo=codigoTipoVeiculo, 
+                      codigoTabelaReferencia=ano['Codigo'], 
                       codigoMarca=marca['Value'],
-                      codigoModelo=modelo['Value'],
-                      codigoTabelaReferencia=ano['Codigo'],
-                      codigoTipoCombustivel=year['Value'].split("-")[1],
-                      codigoTipoVeiculo=codigoTipoVeiculo,
-                      anoModelo=year['Value'].split("-")[0]
+                      codigoModelo=modelo['Value']
                     )
-                    if price is not None and "erro" not in price:
-                      folder = checkFolder(
-                        codigoTabelaReferencia = ano['Codigo'], 
-                        anos = anos,
-                        marca = price["Marca"],
-                        modelo = price["Modelo"],
-                        modeloAno = price["AnoModelo"],
-                        combustivel = price["Combustivel"]
-                      )
-                      uploadToGoogle(folder, price)
-                      ## WRITE DONE.TXT
-                      result = {
-                        "codigoMarca": marca['Value'],
-                        "codigoModelo": modelo['Value'],
-                        "codigoTabelaReferencia": ano['Codigo'],
-                        "codigoTipoCombustivel": year['Value'].split("-")[1],
-                        "codigoTipoVeiculo": codigoTipoVeiculo,
-                        "anoModelo": year['Value'].split("-")[0]
-                      }
-                      appendFileFromGoogle("done.json", result, "w")
-                      # print(json.dumps(result))
+                    if years is not None and "erro" not in years:
+                      ## LOOP MODELO YEARS TO RETRIEVE FOR PRICE
+                      for year in years:
+                        price = getPrice(
+                          codigoMarca=marca['Value'],
+                          codigoModelo=modelo['Value'],
+                          codigoTabelaReferencia=ano['Codigo'],
+                          codigoTipoCombustivel=year['Value'].split("-")[1],
+                          codigoTipoVeiculo=codigoTipoVeiculo,
+                          anoModelo=year['Value'].split("-")[0]
+                        )
+                        if price is not None and "erro" not in price:
+                          folder = checkFolder(
+                            codigoTabelaReferencia = ano['Codigo'], 
+                            anos = anos,
+                            marca = price["Marca"],
+                            modelo = price["Modelo"],
+                            modeloAno = price["AnoModelo"],
+                            combustivel = price["Combustivel"]
+                          )
+                          uploadToGoogle(folder, price)
+                          ## WRITE DONE.TXT
+                          # print("index", index)
+                          result = {
+                            "codigoMarca": marca['Value'],
+                            "codigoModelo": modelo['Value'],
+                            "codigoTabelaReferencia": ano['Codigo'],
+                            "codigoTipoCombustivel": year['Value'].split("-")[1],
+                            "codigoTipoVeiculo": codigoTipoVeiculo,
+                            "anoModelo": year['Value'].split("-")[0],
+                            "modeloNumero": index + 1
+                          }
+                          appendFileFromGoogle("done.json", result, "w")
+                          # print(json.dumps(result))
+                        else:
+                          appendFileFromGoogle("errors.txt", {
+                            "scope": "price",
+                            "codigoTabelaReferencia": ano['Codigo'],
+                            "codigoTipoVeiculo": codigoTipoVeiculo,
+                            "codigoMarca": marca['Value'],
+                            "codigoModelo": modelo['Value'],
+                            "codigoTipoCombustivel": year['Value'].split("-")[1],
+                            "anoModelo": year['Value'].split("-")[0]
+                          })
                     else:
                       appendFileFromGoogle("errors.txt", {
-                        "scope": "price",
+                        "scope": "years",
                         "codigoTabelaReferencia": ano['Codigo'],
                         "codigoTipoVeiculo": codigoTipoVeiculo,
                         "codigoMarca": marca['Value'],
-                        "codigoModelo": modelo['Value'],
-                        "codigoTipoCombustivel": year['Value'].split("-")[1],
-                        "anoModelo": year['Value'].split("-")[0]
+                        "codigoModelo": modelo['Value']
                       })
-                else:
-                    appendFileFromGoogle("errors.txt", {
-                      "scope": "years",
-                      "codigoTabelaReferencia": ano['Codigo'],
-                      "codigoTipoVeiculo": codigoTipoVeiculo,
-                      "codigoMarca": marca['Value'],
-                      "codigoModelo": modelo['Value']
-                    })
-            else:
-              appendFileFromGoogle("errors.txt", {
-                "scope": "modelos",
-                "codigoTabelaReferencia": ano['Codigo'],
-                "codigoTipoVeiculo": codigoTipoVeiculo,
-                "codigoMarca": marca['Value']
-              })
+              else:
+                appendFileFromGoogle("errors.txt", {
+                  "scope": "modelos",
+                  "codigoTabelaReferencia": ano['Codigo'],
+                  "codigoTipoVeiculo": codigoTipoVeiculo,
+                  "codigoMarca": marca['Value']
+                })
         else:
           appendFileFromGoogle("errors.txt", {
             "scope": "marcas",
             "codigoTabelaReferencia": ano['Codigo'],
             "codigoTipoVeiculo": codigoTipoVeiculo
           })
+
+if __name__ == "__main__":
+  try:
+    doneFile = checkFile("done.json")
+    init()
+  except:
+    init()
