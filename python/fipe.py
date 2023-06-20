@@ -156,23 +156,29 @@ def getAnos(doneFile):
   appendFileFromGoogle("anos.json", result, "w")
   return result
 
+def loadMarcas(codigoTabelaReferencia, codigoTipoVeiculo):
+  url = "https://veiculos.fipe.org.br/api/veiculos/ConsultarMarcas"
+  data = {
+    'codigoTabelaReferencia': codigoTabelaReferencia,
+    'codigoTipoVeiculo': codigoTipoVeiculo
+  }
+  result = requests.post(url, data = data)
+  if(result.status_code == 200):
+    result = result.json()
+  else:
+    appendFileFromGoogle("errors.txt", data)
+    result = None
+  return result
+
 def getMarcas(codigoTabelaReferencia, codigoTipoVeiculo, anos):
   if(doneFile is not False):
-    fileName = checkFile(checkFolder(codigoTabelaReferencia, anos) + "/_marcas.json")
+    fileName = checkFile(checkFolder(codigoTabelaReferencia, anos) + "/_marcas_" + str(codigoTipoVeiculo) + ".json")
+    if(fileName is False):
+      fileName = loadMarcas(codigoTabelaReferencia=codigoTabelaReferencia, codigoTipoVeiculo=codigoTipoVeiculo)
     fileNameFiltered = mapMarcas(fileName)
     result = list(fileNameFiltered)
   else:
-    url = "https://veiculos.fipe.org.br/api/veiculos/ConsultarMarcas"
-    data = {
-      'codigoTabelaReferencia': codigoTabelaReferencia,
-      'codigoTipoVeiculo': codigoTipoVeiculo
-    }
-    result = requests.post(url, data = data)
-    if(result.status_code == 200):
-      result = result.json()
-    else:
-      appendFileFromGoogle("errors.txt", data)
-      result = None
+    result = loadMarcas(codigoTabelaReferencia=codigoTabelaReferencia, codigoTipoVeiculo=codigoTipoVeiculo)
   return result
 
 def getModelos(codigoTipoVeiculo, codigoTabelaReferencia, codigoMarca, anos=None):
@@ -311,6 +317,8 @@ def init():
   for ano in anos:
     if(ano is not None):
       for codigoTipoVeiculo in vehicles:
+        ####
+        # codigoTipoVeiculo = 3
         marcas = getMarcas(
           codigoTabelaReferencia=ano['Codigo'],
           codigoTipoVeiculo=codigoTipoVeiculo,
@@ -318,8 +326,10 @@ def init():
         )
         if marcas is not None and "erro" not in marcas:
           ## WRITE MARCAS FROM EACH MONTH
-          folder = checkFolder(ano['Codigo'], anos) + "/_marcas.json"
-          appendFileFromGoogle(folder, marcas)
+          folder = checkFolder(ano['Codigo'], anos) + "/_marcas_" + str(codigoTipoVeiculo) + ".json"
+          appendFileFromGoogle(folder, marcas, mode="w")
+          ##
+          # exit()
           ## LOOP MARCAS
           for marca in marcas:
             if(marca is not None):
