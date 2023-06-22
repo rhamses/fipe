@@ -144,19 +144,7 @@ def mapModelos(modelos):
       break
   return modelos
 
-
-def getAnos(doneFile):
-  if(doneFile is not False):
-    anosFile = checkFile("anos.json")
-    newDoneFile = map(mapAnos, anosFile)
-    result = list(newDoneFile)
-  else:
-    result = requests.post("https://veiculos.fipe.org.br/api/veiculos/ConsultarTabelaDeReferencia")
-    result = result.json()
-  appendFileFromGoogle("anos.json", result, "w")
-  return result
-
-def loadMarcas(codigoTabelaReferencia, codigoTipoVeiculo):
+def loadMarcas(codigoTabelaReferencia, codigoTipoVeiculo, anos):
   url = "https://veiculos.fipe.org.br/api/veiculos/ConsultarMarcas"
   data = {
     'codigoTabelaReferencia': codigoTabelaReferencia,
@@ -165,20 +153,42 @@ def loadMarcas(codigoTabelaReferencia, codigoTipoVeiculo):
   result = requests.post(url, data = data)
   if(result.status_code == 200):
     result = result.json()
+    ## WRITE MARCAS FROM EACH MONTH
+    folder = checkFolder(codigoTabelaReferencia, anos) + "/_marcas_" + str(codigoTipoVeiculo) + ".json"
+    appendFileFromGoogle(folder, result, mode="w")
   else:
     appendFileFromGoogle("errors.txt", data)
     result = None
   return result
 
-def getMarcas(codigoTabelaReferencia, codigoTipoVeiculo, anos):
-  if(doneFile is not False):
-    fileName = checkFile(checkFolder(codigoTabelaReferencia, anos) + "/_marcas_" + str(codigoTipoVeiculo) + ".json")
-    if(fileName is False):
-      fileName = loadMarcas(codigoTabelaReferencia=codigoTabelaReferencia, codigoTipoVeiculo=codigoTipoVeiculo)
-    fileNameFiltered = mapMarcas(fileName)
-    result = list(fileNameFiltered)
+def getAnos(doneFile):
+  global startedAnos
+  anosFile = checkFile("anos.json")
+  if(anosFile):
+    if(startedAnos is False):
+      newDoneFile = map(mapAnos, anosFile)
+      result = list(newDoneFile)
+      startedAnos = True
+    else:
+      result = anosFile
   else:
-    result = loadMarcas(codigoTabelaReferencia=codigoTabelaReferencia, codigoTipoVeiculo=codigoTipoVeiculo)
+    result = requests.post("https://veiculos.fipe.org.br/api/veiculos/ConsultarTabelaDeReferencia")
+    result = result.json()
+    appendFileFromGoogle("anos.json", result, "w")
+  return result
+
+def getMarcas(codigoTabelaReferencia, codigoTipoVeiculo, anos):
+  global startedMarcas
+  fileName = checkFile(checkFolder(codigoTabelaReferencia, anos) + "/_marcas_" + str(codigoTipoVeiculo) + ".json")
+  if(fileName):
+    if(startedMarcas is False):
+      fileNameFiltered = mapMarcas(fileName)
+      result = list(fileNameFiltered)
+      startedMarcas = True
+    else:
+      result = fileName
+  else:
+    result = loadMarcas(codigoTabelaReferencia=codigoTabelaReferencia, codigoTipoVeiculo=codigoTipoVeiculo, anos=anos)
   return result
 
 def getModelos(codigoTipoVeiculo, codigoTabelaReferencia, codigoMarca, anos=None):
@@ -240,77 +250,6 @@ def getPrice(codigoMarca, codigoModelo, codigoTabelaReferencia, codigoTipoCombus
     result = None
   return result
 
-# def init(vehicle):
-#   anos = getAnos()
-#   for ano in anos:
-#     codigoTabelaReferencia = ano['Codigo']
-#     codigoTipoVeiculo = vehicle
-#     ## Pega todas as marcas reference a um ano
-#     marcas = getMarcas(
-#       codigoTabelaReferencia=codigoTabelaReferencia,
-#       codigoTipoVeiculo=codigoTipoVeiculo,
-#       anos=anos
-#     )
-#     ## Carrega todos os modelos por marca
-#     if(marcas is not None):
-#       for marca in marcas:
-#         modelos = getModelos(
-#           codigoTipoVeiculo=codigoTipoVeiculo, 
-#           codigoTabelaReferencia=codigoTabelaReferencia, 
-#           codigoMarca=marca['Value'],
-#           anos=anos
-#         )
-#     ## Carrega o preço por variação se existir modelo
-#         if(modelos is not None):
-#           for modelo in modelos:
-#             if(modelo['Years'] is not None):
-#               for year in modelo['Years']:
-#                 getPrice(
-#                   codigoMarca=modelo['Brand'],
-#                   codigoModelo=modelo['Value'],
-#                   codigoTabelaReferencia=codigoTabelaReferencia,
-#                   codigoTipoCombustivel=year['Value'].split("-")[1],
-#                   codigoTipoVeiculo=codigoTipoVeiculo,
-#                   anoModelo=year['Value'].split("-")[0],
-#                   anos=anos
-#                 )
-#             else:
-#               appendFileFromGoogle("errors.txt", {
-#                 "scope": "loadPrice",
-#                 "codigoTipoVeiculo": vehicle,
-#                 "codigoTabelaReferencia": ano['Codigo'], 
-#                 "codigoMarca": marca['Value']
-#               })
-#         else:
-#           appendFileFromGoogle("errors.txt", {
-#             "scope": "loadModelos",
-#             "codigoTipoVeiculo": codigoTipoVeiculo, 
-#             "codigoTabelaReferencia": codigoTabelaReferencia, 
-#             "codigoMarca": marca['Value'],
-#           })
-#     else:
-#       appendFileFromGoogle("errors.txt", {
-#         "scope": "loadMarcas",
-#         "codigoTipoVeiculo": codigoTipoVeiculo, 
-#         "codigoTabelaReferencia": codigoTabelaReferencia
-#       })
-
-def isModelExists(codigoMarca, codigoModelo, codigoTabelaReferencia, codigoTipoVeiculo):
-  # print("chamou", codigoMarca, codigoModelo, codigoTabelaReferencia, codigoTipoVeiculo)
-  uploadedFiles = readFileFromGoogle("done.json")
-  if uploadedFiles is not False:
-    item = json.loads(uploadedFiles[0])
-    if(
-        int(item["codigoMarca"]) == int(codigoMarca) and
-        int(item["codigoModelo"]) == int(codigoModelo) and
-        int(item["codigoTabelaReferencia"]) == int(codigoTabelaReferencia) and
-        int(item["codigoTipoVeiculo"]) == int(codigoTipoVeiculo)
-      ):
-      # print("deu false")
-      return True
-    else:
-      return False
-
 def init():
   vehicles = [1,2,3]
   anos = getAnos(doneFile=doneFile)
@@ -325,9 +264,6 @@ def init():
           anos=anos
         )
         if marcas is not None and "erro" not in marcas:
-          ## WRITE MARCAS FROM EACH MONTH
-          folder = checkFolder(ano['Codigo'], anos) + "/_marcas_" + str(codigoTipoVeiculo) + ".json"
-          appendFileFromGoogle(folder, marcas, mode="w")
           ##
           # exit()
           ## LOOP MARCAS
@@ -434,6 +370,8 @@ def init():
 
 if __name__ == "__main__":
   try:
+    startedAnos = False
+    startedMarcas = False
     doneFile = checkFile("done.json")
     init()
   except:
