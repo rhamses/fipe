@@ -375,4 +375,7 @@ if __name__ == "__main__":
     doneFile = checkFile("done.json")
     init()
   except:
+    startedAnos = False
+    startedMarcas = False
+    doneFile = checkFile("done.json")
     init()
