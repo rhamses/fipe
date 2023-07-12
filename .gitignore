@@ -6,3 +6,4 @@ data/
 *.txt
 mock/
 node/node_modules
+python/__pycache__
