@@ -7,3 +7,4 @@ data/
 mock/
 node/node_modules
 python/__pycache__
+indexes/*
