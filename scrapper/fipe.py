@@ -1,10 +1,10 @@
 import os
 import logging
 import requests
-import logging
 import json
 import threading
 import math
+import sys
 from datetime import datetime
 from os import walk
 from slugify import slugify
@@ -149,10 +149,10 @@ def processMarcas(vehicleIndex):
         logging.error("(processMarcas) - " + str(e))
 
 
-def processThread(filenames, dirpath, FOLDERPATH):
+def processThread(filenames, dirpath, FOLDERPATH, error):
     try:
         for filename in filenames:
-            with open(dirpath + "/" + filename) as itemFile:
+            with open(dirpath + filename) as itemFile:
                 items = json.load(itemFile)
                 filename = filename.replace(".json", "").replace(dirpath + "/", "")
                 ## Check para payload de Modelos
@@ -169,7 +169,7 @@ def processThread(filenames, dirpath, FOLDERPATH):
                         codigoTipoCombustivel = item["Value"].split("-")[1]
                         anoModelo = item["Value"].split("-")[0]
                         ## generate filename
-                        fileName = f"{codigoTabelaReferencia}-{codigoMarca}-{codigoModelo}-{codigoTipoCombustivel}-{anoModelo}-{codigoTipoVeiculo}.json"
+                        filename = f"{codigoTabelaReferencia}-{codigoMarca}-{codigoModelo}-{codigoTipoCombustivel}-{anoModelo}-{codigoTipoVeiculo}.json"
                         data = {
                             "codigoMarca": codigoMarca,
                             "codigoModelo": codigoModelo,
@@ -225,9 +225,10 @@ def processThread(filenames, dirpath, FOLDERPATH):
                             "codigoTabelaReferencia": codigoTabelaReferencia,
                             "codigoTipoVeiculo": codigoTipoVeiculo,
                         }
+
                     if os.path.exists(FOLDERPATH + filename) == False:
                         result = requestData(path=path, data=data)
-                        saveData(folder=PRICE_PATH, file=filename, data=result)
+                        saveData(folder=FOLDERPATH, file=filename, data=result)
     except Exception as e:
         logging.error("--------------------")
         logging.error("FOLDERPATH - " + FOLDERPATH)
@@ -283,7 +284,7 @@ def startThread(path, instance, target, FOLDERPATH):
             current = current + instances
         for item in pieces:
             threads.append(
-                threading.Thread(target=target, args=(item, dirpath, FOLDERPATH))
+                threading.Thread(target=target, args=(item, dirpath, FOLDERPATH, False))
             )
         for t in threads:
             t.start()
@@ -330,124 +331,62 @@ def deleteMongo(collection):
     db[collection].delete_many({})
 
 
-def processMongo(filenames, dirpath):
-    try:
-        # Provide the mongodb atlas url to connect python to mongodb using pymongo
-        CONNECTION_STRING = "mongodb+srv://ambiente1:HzRYel5sSP1av7SC@cluster0.zeadg.gcp.mongodb.net/?retryWrites=true&w=majority"
-        # Create a connection using MongoClient. You can import MongoClient or use pymongo.MongoClient
-        client = MongoClient(CONNECTION_STRING)
-        ##
-        db = client["fipe"]
-        colBrandModel = db["brand_model"]
-        colModelVariation = db["model_variation"]
-        colPriceTime = db["price_timeseries"]
-        months = {
-            "janeiro": 1,
-            "fevereiro": 2,
-            "marco": 3,
-            "abril": 4,
-            "maio": 5,
-            "junho": 6,
-            "julho": 7,
-            "agosto": 8,
-            "setembro": 9,
-            "outubro": 10,
-            "novembro": 11,
-            "dezembro": 12,
-        }
-        for filename in filenames:
-            with open(dirpath + "/" + filename) as theFile:
-                ## parse json file
-                data = json.load(theFile)
-                ## Get Type Vehicle
-                if data["TipoVeiculo"] == 1:
-                    vehicleName = "car"
-                elif data["TipoVeiculo"] == 2:
-                    vehicleName = "motorcycle"
-                elif data["TipoVeiculo"] == 3:
-                    vehicleName = "truck"
-                else:
-                    vehicleName = ""
-                ## Get price by transform data["Valor"] from String to Float
-                price = float(
-                    data["Valor"].replace("R$ ", "").replace(".", "").replace(",", ".")
-                )
-                ## Get Reference Year by transforming "MesReferencia" from string to timestamp
-                referenceRaw = data["MesReferencia"].replace(" de ", "-").split("-")
-                year = int(referenceRaw[1])
-                month = int(months[slugify(referenceRaw[0])])
-                newDate = datetime(year, month, 1)
-                ## Creating Collections Body
-                brandModel = {
-                    "model": data["Modelo"],
-                    "model-slug": slugify(data["Modelo"]),
-                    "brand": data["Marca"],
-                    "brand-slug": slugify(data["Marca"]),
-                    "codigoFipe": data["CodigoFipe"],
-                    "vehicle": {"type": data["TipoVeiculo"], "name": vehicleName},
-                }
-                modelVariation = {
-                    "year": data["AnoModelo"],
-                    "fuel": slugify(data["Combustivel"]),
-                }
-                priceTimeSeries = {"price": price, "reference": newDate}
-                ## Update Brand Model
-                mongoFilter = {"model-slug": brandModel["model-slug"]}
-                mongoUpdate = {"$set": brandModel}
-                brandId = colBrandModel.update_one(
-                    mongoFilter, mongoUpdate, upsert=True
-                )
-                ## Check Brand insert id
-                if brandId.upserted_id == None:
-                    brandId = colBrandModel.find_one(
-                        {"model-slug": brandModel["model-slug"]}
-                    )["_id"]
-                else:
-                    brandId = brandId.upserted_id
-                ## Update Model Variation
-                modelVariation["brand_id"] = ObjectId(brandId)
-                mongoFilter = {
-                    "brand_id": modelVariation["brand_id"],
-                    "year": modelVariation["year"],
-                }
-                mongoUpdate = {"$set": modelVariation}
-                variationId = colModelVariation.update_one(
-                    mongoFilter, mongoUpdate, upsert=True
-                )
-                ## Check Brand insert id
-                if variationId.upserted_id == None:
-                    variationId = colModelVariation.find_one(mongoFilter)["_id"]
-                else:
-                    variationId = variationId.upserted_id
-                print(filename)
-                ## Insert time series data
-                # priceTimeSeries["metadata"] = ObjectId(variationId)
-                # colPriceTime.insert_one(priceTimeSeries)
-        client.close()
-    except Exception as e:
-        logging.warning("(processMongo) - " + json.dumps(data) + " - " + filename)
-        logging.error("(processMongo) - " + str(e))
-
-
 if __name__ == "__main__":
     try:
-        # startMongo()
-        # deleteMongo("price_timeseries")
-        """
-        => PROCESSA MODELOS
-        <= GERA VARIACOES DE CADA MODELO"""
-        startThread(
-            ## LÊ MODELOS -> GERA VARIACOES
-            # path=MODELO_PATH,
-            # FOLDERPATH=VARIACAO_PATH,
-            ## LÊ VARIACAO -> GERA PRECO
-            # path=VARIACAO_PATH,
-            # FOLDERPATH=PRICE_PATH,
-            ## LÊ MARCAS -> GERA MODELOS
-            # path=MARCA_PATH,
-            # FOLDERPATH=MODELO_PATH,
-            # instance=1,
-            # target=processThread,
-        )
+        if "--error" in sys.argv:
+            filenames = json.load(open("reprocessPrice.json"))
+            for filename in filenames:
+                ## BLOCO DE PRICE
+                path = "https://veiculos.fipe.org.br/api/veiculos/ConsultarValorComTodosParametros"
+                codigoTabelaReferencia = filename.split("-")[0]
+                codigoMarca = filename.split("-")[1]
+                codigoModelo = filename.split("-")[2]
+                codigoTipoCombustivel = filename.split("-")[3]
+                anoModelo = filename.split("-")[4]
+                codigoTipoVeiculo = filename.split("-")[5].replace(".json", "")
+                data = {
+                    "codigoMarca": codigoMarca,
+                    "codigoModelo": codigoModelo,
+                    "codigoTabelaReferencia": codigoTabelaReferencia,
+                    "codigoTipoCombustivel": codigoTipoCombustivel,
+                    "codigoTipoVeiculo": codigoTipoVeiculo,
+                    "anoModelo": anoModelo,
+                    "tipoConsulta": "tradicional",
+                }
+                """
+                ## BLOCO DE MODELO
+                path = "https://veiculos.fipe.org.br/api/veiculos/ConsultarAnoModelo"
+                codigoTabelaReferencia = filename.split("-")[0]
+                codigoMarca = filename.split("-")[1]
+                codigoModelo = filename.split("-")[2]
+                codigoTipoVeiculo = filename.split("-")[3].replace(".json", "")
+                data = {
+                    "codigoMarca": codigoMarca,
+                    "codigoModelo": codigoModelo,
+                    "codigoTabelaReferencia": codigoTabelaReferencia,
+                    "codigoTipoVeiculo": codigoTipoVeiculo,
+                }
+                """
+                result = requestData(path=path, data=data)
+                saveData(folder=PRICE_PATH, file=filename, data=result)
+        else:
+            # startMongo()
+            # deleteMongo("price_timeseries")
+            """
+            => PROCESSA MODELOS
+            <= GERA VARIACOES DE CADA MODELO"""
+            startThread(
+                ## LÊ MODELOS -> GERA VARIACOES
+                # path=MODELO_PATH,
+                # FOLDERPATH=VARIACAO_PATH,
+                ## LÊ VARIACAO -> GERA PRECO
+                path=VARIACAO_PATH,
+                FOLDERPATH=PRICE_PATH,
+                ## LÊ MARCAS -> GERA MODELOS
+                # path=MARCA_PATH,
+                # FOLDERPATH=MODELO_PATH,
+                instance=1,
+                target=processThread,
+            )
     except Exception as e:
         logging.error(e)
