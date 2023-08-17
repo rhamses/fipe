@@ -1,7 +1,9 @@
 import logging
 import json
+import threading
+import math
 from datetime import datetime
-from pymongo import MongoClient
+from pymongo import MongoClient, UpdateOne, InsertOne
 from bson import ObjectId
 from slugify import slugify
 from os import walk
@@ -35,35 +37,134 @@ def getModelo(item):
     return {"model": "modelos", "result": data}
 
 
-def processMongo(path):
+def getVariacao(item):
+    try:
+        year = int(item["Value"].split("-")[0])
+        fuel = int(item["Value"].split("-")[1])
+        if fuel == 1:
+            fuel = "gasolina"
+        if fuel == 2:
+            fuel = "alcool"
+        if fuel == 3:
+            fuel = "diesel"
+        data = {"ano": year, "combustivel": fuel}
+        return {"model": "variacoes", "result": data}
+    except Exception as e:
+        logging.error(e)
+
+
+def getPreco(item):
+    print("asda")
+
+
+def deleteMongo(collection):
     try:
         mongo = connectMongo()
-        for dirpath, dirnames, filenames in walk(path):
-            for filename in filenames:
-                items = json.load(open(dirpath + filename))
-                if "Modelos" in items:
-                    items = items["Modelos"]
-                for item in items:
-                    if "marcas" in path:
-                        data = getMarcas(item)
-                    if "modelo" in path:
-                        data = getModelo(item)
-                        marcaID = int(filename.split("-")[1])
-                        # print(marcaID)
-                        # print(filename)
-                        # exit()
-                        model = mongo["db"]["marcas"]
-                        marca = model.find_one({"value": marcaID})
-                        if marca is not None:
-                            data["result"]["marca_id"] = ObjectId(marca["_id"])
-                        # print(data["result"])
-                        # exit()
-                    model = mongo["db"][data["model"]]
-                    mongoFilter = {"name": data["result"]["slug"]}
-                    mongoData = {"$set": data["result"]}
-                    model.update_one(mongoFilter, mongoData, upsert=True)
+        model = mongo["db"][collection]
+        model[collection].delete_many({})
         mongo["client"].close()
     except Exception as e:
+        logging.error(e)
+
+
+def processMongo(filenames, dirpath):
+    try:
+        for filename in filenames:
+            mongo = connectMongo()
+            model = ""
+            queries = []
+            items = json.load(open(dirpath + filename))
+            if "Modelos" in items:
+                items = items["Modelos"]
+            for item in items:
+                if "marcas" in dirpath:
+                    data = getMarcas(item)
+                if "modelo" in dirpath:
+                    data = getModelo(item)
+                    marcaID = int(filename.split("-")[1])
+                    model = mongo["db"]["marcas"]
+                    marca = model.find_one({"value": marcaID})
+                    if marca is not None:
+                        data["result"]["marca_id"] = ObjectId(marca["_id"])
+                if "variacao" in dirpath:
+                    data = getVariacao(item)
+                    modelModelos = mongo["db"]["modelos"]
+                    model = mongo["db"][data["model"]]
+                    filepieces = filename.replace(".json", "").split("-")
+                    modelo = modelModelos.find_one({"value": int(filepieces[2])})
+                    if modelo is not None:
+                        data["result"]["marca_id"] = ObjectId(modelo["marca_id"])
+                        data["result"]["modelo_id"] = ObjectId(modelo["_id"])
+                model = mongo["db"][data["model"]]
+                mongoFilter = data["result"]
+                mongoData = {"$set": data["result"]}
+                queries.append(UpdateOne(mongoFilter, mongoData, upsert=True))
+            result = model.bulk_write(queries)
+            mongo["client"].close()
+    except Exception as e:
+        logging.error(e)
+
+
+def processPrice(filenames, dirpath):
+    try:
+        for filename in filenames:
+            msgErr = "Arquivo False"
+            fileContent = json.load(open(dirpath + filename))
+            if fileContent:
+                filePieces = filename.replace(".json", "").split("-")
+                mongo = connectMongo()
+                model = mongo["db"]["price_timeseries"]
+                ## Pega Variacao ID
+                modelModelos = mongo["db"]["modelos"]
+                pipeline = [
+                    {"$match": {"value": int(filePieces[2])}},
+                    {
+                        "$lookup": {
+                            "from": "variacoes",
+                            "localField": "_id",
+                            "foreignField": "modelo_id",
+                            "as": "result",
+                        }
+                    },
+                    {"$unwind": {"path": "$result"}},
+                    {"$match": {"result.ano": int(filePieces[4])}},
+                    {
+                        "$project": {
+                            "_id": 0,
+                            "marca_id": 1,
+                            "modelo_id": "$result.modelo_id",
+                            "variacao_id": "$result._id",
+                        }
+                    },
+                ]
+                msgErr = "modelModelos aggregate false"
+                result = list(modelModelos.aggregate(pipeline))
+                if len(result) >= 1:
+                    result = result[0]
+                    price = float(
+                        fileContent["Valor"]
+                        .replace("R$ ", "")
+                        .replace(".", "")
+                        .replace(",", ".")
+                    )
+                    timestamp = filterDate(fileContent["MesReferencia"])
+                    data = {
+                        "variacao_id": result["variacao_id"],
+                        "reference": timestamp,
+                        "price": price,
+                        "autenticacao": fileContent["Autenticacao"],
+                    }
+                    ## Check if entry already exists
+                    ## If is not, include it
+                    if model.find_one(data) is None:
+                        model.insert_one(data)
+                mongo["client"].close()
+            else:
+                logging.warning(msgErr)
+                logging.warning(filename)
+    except Exception as e:
+        logging.error("processPrice")
+        logging.error(filename)
         logging.error(e)
 
 
@@ -73,109 +174,89 @@ def connectMongo():
     return {"client": client, "db": db}
 
 
-def processMongo1(filenames, dirpath):
+def deleteDuplicates(model):
     try:
-        # Provide the mongodb atlas url to connect python to mongodb using pymongo
-        CONNECTION_STRING = "mongodb+srv://ambiente1:HzRYel5sSP1av7SC@cluster0.zeadg.gcp.mongodb.net/?retryWrites=true&w=majority"
-        # Create a connection using MongoClient. You can import MongoClient or use pymongo.MongoClient
-        client = MongoClient(CONNECTION_STRING)
-        ##
-        db = client["fipe"]
-        return db
-        colBrandModel = db["brand_model"]
-        colModelVariation = db["model_variation"]
-        colPriceTime = db["price_timeseries"]
-        months = {
-            "janeiro": 1,
-            "fevereiro": 2,
-            "marco": 3,
-            "abril": 4,
-            "maio": 5,
-            "junho": 6,
-            "julho": 7,
-            "agosto": 8,
-            "setembro": 9,
-            "outubro": 10,
-            "novembro": 11,
-            "dezembro": 12,
-        }
-        for filename in filenames:
-            with open(dirpath + "/" + filename) as theFile:
-                ## parse json file
-                data = json.load(theFile)
-                ## Get Type Vehicle
-                if data["TipoVeiculo"] == 1:
-                    vehicleName = "car"
-                elif data["TipoVeiculo"] == 2:
-                    vehicleName = "motorcycle"
-                elif data["TipoVeiculo"] == 3:
-                    vehicleName = "truck"
-                else:
-                    vehicleName = ""
-                ## Get price by transform data["Valor"] from String to Float
-                price = float(
-                    data["Valor"].replace("R$ ", "").replace(".", "").replace(",", ".")
-                )
-                ## Get Reference Year by transforming "MesReferencia" from string to timestamp
-                referenceRaw = data["MesReferencia"].replace(" de ", "-").split("-")
-                year = int(referenceRaw[1])
-                month = int(months[slugify(referenceRaw[0])])
-                newDate = datetime(year, month, 1)
-                ## Creating Collections Body
-                brandModel = {
-                    "model": data["Modelo"],
-                    "model-slug": slugify(data["Modelo"]),
-                    "brand": data["Marca"],
-                    "brand-slug": slugify(data["Marca"]),
-                    "codigoFipe": data["CodigoFipe"],
-                    "vehicle": {"type": data["TipoVeiculo"], "name": vehicleName},
+        db = connectMongo()
+        model = db["db"][model]
+        pipeline = [
+            {
+                "$group": {
+                    "_id": "$value",
+                    "dups": {"$push": "$_id"},
+                    "count": {"$sum": 1},
                 }
-                modelVariation = {
-                    "year": data["AnoModelo"],
-                    "fuel": slugify(data["Combustivel"]),
-                }
-                priceTimeSeries = {"price": price, "reference": newDate}
-                ## Update Brand Model
-                mongoFilter = {"model-slug": brandModel["model-slug"]}
-                mongoUpdate = {"$set": brandModel}
-                brandId = colBrandModel.update_one(
-                    mongoFilter, mongoUpdate, upsert=True
-                )
-                ## Check Brand insert id
-                if brandId.upserted_id == None:
-                    brandId = colBrandModel.find_one(
-                        {"model-slug": brandModel["model-slug"]}
-                    )["_id"]
-                else:
-                    brandId = brandId.upserted_id
-                ## Update Model Variation
-                modelVariation["brand_id"] = ObjectId(brandId)
-                mongoFilter = {
-                    "brand_id": modelVariation["brand_id"],
-                    "year": modelVariation["year"],
-                }
-                mongoUpdate = {"$set": modelVariation}
-                variationId = colModelVariation.update_one(
-                    mongoFilter, mongoUpdate, upsert=True
-                )
-                ## Check Brand insert id
-                if variationId.upserted_id == None:
-                    variationId = colModelVariation.find_one(mongoFilter)["_id"]
-                else:
-                    variationId = variationId.upserted_id
-                print(filename)
-                ## Insert time series data
-                # priceTimeSeries["metadata"] = ObjectId(variationId)
-                # colPriceTime.insert_one(priceTimeSeries)
-        client.close()
+            }
+        ]
+        items = list(model.aggregate(pipeline=pipeline))
+        for item in items:
+            item["dups"].pop(0)
+            model.delete_many({"_id": {"$in": item["dups"]}})
     except Exception as e:
-        logging.warning("(processMongo) - " + json.dumps(data) + " - " + filename)
-        logging.error("(processMongo) - " + str(e))
+        logging.error(e)
+
+
+def filterDate(date):
+    date = slugify(date.strip())
+    mes = 0
+    ano = int(date[len(date) - 4 : len(date)])
+
+    if "janeiro" in date:
+        mes = 1
+    elif "fevereiro" in date:
+        mes = 2
+    elif "marco" in date:
+        mes = 3
+    elif "abril" in date:
+        mes = 4
+    elif "maio" in date:
+        mes = 5
+    elif "junho" in date:
+        mes = 6
+    elif "julho" in date:
+        mes = 7
+    elif "agosto" in date:
+        mes = 8
+    elif "setembro" in date:
+        mes = 9
+    elif "outubro" in date:
+        mes = 10
+    elif "novembro" in date:
+        mes = 11
+    elif "dezembro" in date:
+        mes = 12
+
+    return datetime(ano, mes, 1)
+
+
+def startThread(path, instance, target):
+    for dirpath, dirnames, filenames in walk(path):
+        logging.warning("Total of " + path + " - " + str(len(filenames)))
+        instances = math.ceil(len(filenames) / instance)
+        threads = []
+        pieces = []
+        current = 0
+        while True:
+            data = filenames[current : (current + instances)]
+            if len(data) == 0:
+                break
+            pieces.append(data)
+            current = current + instances
+        for item in pieces:
+            threads.append(threading.Thread(target=target, args=(item, dirpath)))
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
 
 
 if __name__ == "__main__":
     try:
-        # processMongo(MARCA_PATH)
-        processMongo(MODELO_PATH)
+        # deleteDuplicates("modelos")
+        # startThread(path=MARCA_PATH, instance=12, target=processMongo)
+        # startThread(path=MODELO_PATH, instance=12, target=processMongo)
+        # startThread(path=VARIACAO_PATH, instance=1, target=processMongo)
+        # deleteMongo("price_timeseries")
+        startThread(path=PRICE_PATH, instance=12, target=processPrice)
     except Exception as e:
+        logging.error("main error")
         logging.error(e)
