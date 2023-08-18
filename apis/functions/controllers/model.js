@@ -1,6 +1,8 @@
 const { onRequest } = require("firebase-functions/v2/https");
+const { setGlobalOptions } = require("firebase-functions/v2");
 const express = require("express");
 const processRoute = require("../services/route");
+setGlobalOptions({ maxInstances: 10 });
 const Model = (model) => {
   const app = express();
 

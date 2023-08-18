@@ -249,6 +249,52 @@ def startThread(path, instance, target):
             t.join()
 
 
+def createSearchView():
+    query = [
+        {
+            "$lookup": {
+                "from": "modelos",
+                "localField": "_id",
+                "foreignField": "marca_id",
+                "as": "modelos",
+            }
+        },
+        {
+            "$lookup": {
+                "from": "variacoes",
+                "localField": "_id",
+                "foreignField": "marca_id",
+                "as": "variacoes",
+            }
+        },
+        {"$unwind": {"path": "$modelos", "preserveNullAndEmptyArrays": False}},
+        {"$unwind": {"path": "$variacoes", "preserveNullAndEmptyArrays": False}},
+        {
+            "$project": {
+                "marca_id": "$_id",
+                "modelo_id": "$modelos._id",
+                "variacao_id": "$variacoes._id",
+                "marca_name": "$name",
+                "marca_slug": "$slug",
+                "modelo_name": "$modelos.name",
+                "modelo_slug": "$modelos.slug",
+                "variacao_ano": "$variacoes.ano",
+            }
+        },
+        {
+            "$merge": {
+                "into": "listindex",
+                "whenMatched": "replace",
+                "whenNotMatched": "insert",
+            }
+        },
+    ]
+    mongo = connectMongo()
+    model = mongo["db"]["marcas"]
+    result = model.aggregate(query)
+    print(result)
+
+
 if __name__ == "__main__":
     try:
         # deleteDuplicates("modelos")
@@ -256,7 +302,8 @@ if __name__ == "__main__":
         # startThread(path=MODELO_PATH, instance=12, target=processMongo)
         # startThread(path=VARIACAO_PATH, instance=1, target=processMongo)
         # deleteMongo("price_timeseries")
-        startThread(path=PRICE_PATH, instance=12, target=processPrice)
+        # startThread(path=PRICE_PATH, instance=12, target=processPrice)
+        createSearchView()
     except Exception as e:
         logging.error("main error")
         logging.error(e)

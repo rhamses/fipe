@@ -9,3 +9,4 @@ node/node_modules
 python/__pycache__
 scrapper/__pycache__
 indexes/*
+/public/

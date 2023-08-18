@@ -3,24 +3,6 @@ const uri =
   "mongodb+srv://ambiente1:HzRYel5sSP1av7SC@cluster0.zeadg.gcp.mongodb.net/?retryWrites=true&w=majority";
 const db = "fipe";
 /**
- * @param {*} item
- */
-function treatBody(item) {
-  if (item["_id"]) {
-    delete item["_id"];
-  }
-  if (item["value"]) {
-    delete item["value"];
-  }
-  if (item["marca_id"]) {
-    delete item["marca_id"];
-  }
-  if (item["modelo_id"]) {
-    delete item["modelo_id"];
-  }
-  return item;
-}
-/**
  *
  * @param {string} collection
  * @param {string} query
