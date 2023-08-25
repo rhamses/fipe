@@ -1,19 +1,19 @@
 <template>
   <div class="max-w-sm bg-white rounded overflow-hidden shadow-lg" :class="cssClass">
-    <!-- <img class="w-full" src="/img/card-top.jpg" alt="Sunset in the mountains"> -->
     <div class="px-6 py-4">
       <div class="font-bold text-md mb-2">
         {{ month }} de {{ year }}
       </div>
-      <p class="font-bold text-2xl text-gray-700 text-base mb-2">
+      <p class="font-bold text-2xl text-gray-700 mb-2">
         R$ {{ money }}
       </p>
       <p v-if="variation">
-        <span v-if="yearly < 0"> Desvalorização no ano </span>
+        <span v-if="variation[0].yearly < 0"> Desvalorização no ano </span>
         <span v-else> Valorização no ano </span>
         <br>
-        <b class="font-bold text-xl" :class="{ 'text-red-500': yearly < 0, 'text-green-500': yearly > 0 }">
-          {{ yearly < 0 ? yearly * -1 : yearly }} % </b>
+        <b class="font-bold text-xl"
+          :class="{ 'text-red-500': variation[0].yearly < 0, 'text-green-500': variation[0].yearly > 0 }">
+          {{ variation[0].yearly < 0 ? variation[0].yearly * -1 : variation[0].yearly }} % </b>
       </p>
     </div>
     <!-- <div class="px-6 pt-4 pb-2">
@@ -31,18 +31,12 @@
 import Months from "../services/months"
 const { title, item, variation, cssClass } = defineProps(["title", "item", "variation", "cssClass"])
 const { price, reference } = item
-const yearly = ref("")
 const money = ref("")
 const month = ref("")
 const year = ref("")
-const yearlyColor = ref("")
 money.value = filterMoney()
 month.value = filterMonth()
 year.value = new Date(reference).getFullYear()
-
-if (variation) {
-  yearly.value = variation[0].yearly
-}
 
 function filterMonth() {
   return Months[new Date(reference).getUTCMonth() + 1]

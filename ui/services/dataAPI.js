@@ -24,6 +24,12 @@ class DataAPI {
     this.fetchBody = { ...this.fetchBody, ...body };
     return this.load();
   }
+  insertOne(data) {
+    this.fetchBody["document"] = data;
+    this.collection = "leads";
+    this.action = "insertOne";
+    return this.load({ body: percentageQuery });
+  }
   findOne() {}
   searchModelos(text) {
     searchModelos[0]["$search"].text.query = text;
@@ -56,6 +62,7 @@ class DataAPI {
       body: JSON.stringify(this.fetchBody),
       headers: {
         Authorization: `Bearer ${this.token}`,
+        "Content-Type": "application/json ",
       },
     })
       .then((res) => res.json())

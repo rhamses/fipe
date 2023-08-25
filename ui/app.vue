@@ -1,19 +1,18 @@
 <template>
   <main>
     <Header />
-    <section id="heroSearch" class="dark:bg-cyan-300 py-10 min-h-screen flex items-center">
+    <section id="heroSearch" class="dark:bg-cyan-300 min-h-screen py-10 md:flex md:items-center">
       <div class="h-full md:flex container mx-auto">
-        <div class="px-10 z-10 relative flex items-center basis-1/2">
+        <div class="px-10 z-10 relative flex basis-1/2 md:items-center">
           <div>
-            <h1 class="text-3xl/tight sm:text-4xl/tight md:text-5xl/tight xl:text-6xl/tight font-bold text-heading-1">
+            <h1 class="text-3xl/tight sm:text-4xl/tight md:text-5xl/tight xl:text-6xl/tight font-bold text-heading-1"
+              style="text-shadow: 2px 2px 2px white">
               Tabela Fipe
             </h1>
             <p class="my-5">
-              Lorem ipsum dolor sit amet consectetur adipisicing elit. Similique officia eligendi delectus dolores
-              quisquam
-              placeat laborum incidunt laudantium enim praesentium, possimus iste fuga recusandae assumenda iure error
-              dolor
-              sequi. Asperiores.
+              Encontre os valores do seu veículo. Preencha o campo abaixo com o nome do modelo e em seguida selecione o
+              ano para ver o histórico de valores. Em seguida nos ajude a construir um serviço cada vez melhor
+              contribuindo com o seu email para receber novidades
             </p>
             <form class="relative">
               <label for="default-search"
@@ -57,16 +56,16 @@
             </form>
           </div>
         </div>
-        <div class="basis-1/2 relative">
+        <div class="basis-1/2 relative z-0">
           <img class="absolute"
             src="data:image/svg+xml;base64,77u/PHN2ZyB4bWxucz0naHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmcnIHZpZXdCb3g9JzAgMCAyMDAwIDE4MDAnIGZpbGw9JyNCREQ3NDcnPjxwYXRoIGQ9J00xMzg2LjU3IDE4MS40YzE2MC45IDczLjc0IDMyOC41IDE0OS43MiA0MjQuNTkgMjgxLjU3IDk2LjA5IDEyOS42MSAxMTguNDQgMzE1LjA5IDk4LjMzIDQ4Ny4xNi0yMC4xMSAxNzIuMDctODQuOTIgMzMyLjk3LTE4Ny43MSA0NDYuOTQtMTA1LjAzIDExNi4yLTI1MC4yOSAxODUuNDgtMzkxLjA3IDI0My41OC0xMzguNTUgNjAuMzQtMjcyLjYzIDEwOS41LTM5My4zMSA5MS42Mi0xMjIuOTEtMTcuODgtMjM0LjY0LTEwMi44LTM3Ny42Ni0xNjAuOS0xNDMuMDItNTguMS0zMTcuMzMtODcuMTUtNDA2LjcxLTE4My4yNC04OS4zOS05Ni4wOS05Ni4wOS0yNjEuNDYgMi4yMy0zNjguNzIgOTguMzMtMTA5LjUgMzAxLjY4LTE2MC45IDM4NC4zNy0yNzAuNCA4Mi42OC0xMTEuNzMgNDIuNDYtMjgzLjgxIDg0LjkyLTQyMi4zNkM2NjkuMjQgMTg4LjEgNzk4Ljg2IDgwLjgzIDkzNy40MSA2MC43MmMxNDAuNzktMjAuMTEgMjkwLjUxIDQ5LjE2IDQ0OS4xNyAxMjAuNjdaJz48L3BhdGg+PC9zdmc+"
             alt="" style="z-index: 1">
           <div class="h-full flex items-center justify-center z-10 relative">
             <div>
               <client-only>
-                <!-- <Vue3Lottie
+                <Vue3Lottie
                   animationLink="https://assets-v2.lottiefiles.com/a/a3f16eb6-1176-11ee-91a6-4b5c993f7e76/uwt51wP1FH.json"
-                  class="px-10 md:px-20 z" /> -->
+                  class="px-10 md:px-20 z-0" />
               </client-only>
               <p v-for="item in lastUpdated" class="text-center">
                 Última Atualização: {{ filterDate(item.reference) }}
@@ -76,47 +75,71 @@
         </div>
       </div>
     </section>
-    <section v-if="priceModel.length > 0" id="detailsPrice" class="flex bg-gray-200" style="height: 100vh;">
-      <div class="container mx-auto p-10">
+    <section v-if="priceModel.length > 0" id="detailsPrice" class="flex bg-gray-200 px-10">
+      <div class="container mx-auto pt-10">
         <h2 class="
         font-bold
         sm:text-xl/tight
         ">
           Histórico de Preço
         </h2>
-        <div id="highlightPrice" class="flex items-center">
+        <div id="highlightPrice" class="md:flex md:items-center">
           <div class="py-10 text-center">
             <h3 class="font-bold mb-10 
-            sm:text-xl
+            text-2xl
             md:text-4xl">
               {{ searchModel }} -
               {{ variationYear }}
             </h3>
-            <img :src="'/logos/' + marcaModel + '.svg'" alt="" style="height: 150px;" class="mx-auto">
+            <img :src="'/logos/' + marcaModel + '.svg'" alt="" class="mx-auto h-20">
           </div>
           <div id="currentPrice" class="basis-full">
-            <Card :item="priceModel[0]" :variation="percentageModel" cssClass="mx-auto" />
+            <Card :item="priceHighlight" :variation="percentageModel" cssClass="mx-auto" />
           </div>
         </div>
         <div id="yearPrices" class="flex justify-between flex-wrap my-10">
           <template v-for="price in priceModel">
-            <Card :item="price" cssClass="mb-5" />
+            <Card :item="price" cssClass="mb-5 basis-full md:basis-auto" />
           </template>
         </div>
       </div>
     </section>
-    <section v-if="priceModel.length > 0" id="graphicPrice" class="flex bg-gray-200" style="height: 100vh;">
-      <div class="container mx-auto p-10">
+    <section id="leads">
+      <div class="container mx-auto text-center p-10 max-w-xl flex flex-col justify-between h-96 md:h-80">
         <h2 class="
+        text-3xl/tight
+        sm:text-4xl/tight
         font-bold
-        sm:text-xl/tight
-        ">
-          Gráfico de preço desde o lançamento do veículo
-        </h2>
+        text-heading-1">Fique por dentro!</h2>
+        <p>Se você é desenvolvedor ou uma loja que gostaria de inserir esses dados em suas plataformas, preencha o
+          formulário abaixo:</p>
+        <form v-if="!formModel" action="" @submit.prevent="sendLead">
+          <input v-model="emailModel" required type="email" name="email" id="email" placeholder="email@provedor.com"
+            class="block w-full p-4 pl-10 text-sm text-gray-900 border border-gray-300 rounded-lg bg-gray-50 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500">
+          <button
+            class="bg-blue-500 hover:bg-blue-400 text-white font-bold py-2 px-4 border-b-4 border-blue-700 hover:border-blue-500 rounded mt-5">
+            Quero receber novidades
+          </button>
+        </form>
+        <div v-else>
+          <h2 class="
+            text-3xl/tight
+            sm:text-4xl/tight
+            font-bold
+            text-heading-1">Obrigado. Em breve você receberá novidades</h2>
+        </div>
       </div>
     </section>
   </main>
 </template>
+
+<style>
+select {
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+}
+</style>
 
 <script setup>
 import { Vue3Lottie } from 'vue3-lottie'
@@ -126,13 +149,6 @@ const key = "34P7fmMNocx74WCrayy8KgUvRhZSKjg5JtYpI5PyjfRDzCR7j4Zbw7B1kRAFX32q"
 const realm = new App({ id: "data-dtyre" })
 const credentials = App.Credentials.apiKey(key)
 const { _accessToken, _refreshToken } = await realm.logIn(credentials)
-const data = {
-  labels: ['January', 'February', 'March'],
-  datasets: [{ data: [40, 20, 12] }]
-}
-const options = {
-  responsive: true
-}
 // ENV VARIABLES
 const dataApiParams = {
   url: "https://sa-east-1.aws.data.mongodb-api.com/app/data-dtyre/endpoint/data/v1/action",
@@ -141,15 +157,13 @@ const dataApiParams = {
   token: _accessToken
 }
 // CARGO 3133 E 6x4 Turbo 2p (diesel)(E5)
-const mocks = {
-  price: [{ "reference": "2023-07-01T00:00:00Z", "variacao_id": "64e1523b21b51570bc97447f", "price": 102099, "_id": "64e764c49634f30150c5e9ec", "autenticacao": "f5099x5rnfdd6" }, { "reference": "2023-05-01T00:00:00Z", "variacao_id": "64e1523b21b51570bc97447f", "price": 103711, "_id": "64e627be08fa2ef2147d96c1", "autenticacao": "f7xxm3mc99dd6" }, { "reference": "2023-04-01T00:00:00Z", "variacao_id": "64e1523b21b51570bc97447f", "_id": "64e4b9db8bba45d7e77e9204", "autenticacao": "f8h9scl88ddd6", "price": 104217 }, { "reference": "2023-03-01T00:00:00Z", "variacao_id": "64e1523b21b51570bc97447f", "price": 104439, "_id": "64e6316908fa2ef2147e06a1", "autenticacao": "f8scxnwqxxdd6" }, { "reference": "2023-02-01T00:00:00Z", "variacao_id": "64e1523b21b51570bc97447f", "price": 105280, "_id": "64e63b0408fa2ef2147e6a20", "autenticacao": "f9ryh81h5xdd6" }, { "reference": "2023-01-01T00:00:00Z", "variacao_id": "64e1523b21b51570bc97447f", "_id": "64e6286808fa2ef2147d9fb8", "autenticacao": "f9jtn2qq7pdd6", "price": 105084 }],
-  variation_id: "64e1523b21b51570bc97447f"
-}
-const token = _accessToken
 const searchItems = ref([])
 const searchModel = ref("")
 const marcaModel = ref("")
 const priceModel = ref("")
+const priceHighlight = ref("")
+const emailModel = ref("")
+const formModel = ref(false)
 const percentageModel = ref("")
 const variationModel = ref("")
 const modelVariations = ref([])
@@ -159,11 +173,26 @@ const variationYear = computed(() => {
     return modelVariations.value.find(item => item._id === variationModel.value).ano
   }
 })
+
 watch(variationModel, async (value) => {
   if (value) {
     doPrice(value)
     doPercentage(value)
   }
+})
+
+watch(percentageModel, (value) => {
+  console.log("value", value)
+  window.scroll({
+    top: document.querySelector("#leads").offsetTop - 300,
+    left: 0,
+    behavior: 'smooth'
+  });
+})
+
+watch(priceModel, (value) => {
+  const highlight = value.shift()
+  priceHighlight.value = highlight
 })
 
 mongoLastUpdate()
@@ -209,6 +238,25 @@ function doSearch(e) {
       resetVariables()
     }
   }, 200)
+}
+
+async function sendLead() {
+  try {
+    const API = new DataApi(dataApiParams);
+    const timestamp = new Date().getTime();
+    const data = {
+      email: emailModel.value,
+      created_at: {
+        $date: {
+          $numberLong: String(timestamp),
+        },
+      }
+    }
+    await API.insertOne(data)
+    formModel.value = true
+  } catch (error) {
+    console.log("error", error)
+  }
 }
 
 async function doPrice(variationId) {
