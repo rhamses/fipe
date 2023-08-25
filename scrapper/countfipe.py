@@ -7,9 +7,9 @@ import math
 from datetime import datetime
 from os import walk
 
-logFile = "output-countfipe.log"
+logFile = "output-countfipe-" + str(datetime.now()) + ".log"
 logging.basicConfig(filename=logFile, encoding="utf-8")
-indexesPath = "data/indexes"
+indexesPath = "indexes"
 VARIACAO_PATH = "data/indexes/variacao/"
 MODELO_PATH = "data/indexes/modelos/"
 BRANDS_PATH = "data/indexes/marcas/"
@@ -95,9 +95,7 @@ def findEmpty(path, limit):
             file_stats = os.stat(dirpath + "/" + filename)
             if file_stats.st_size < limit:
                 result.add(filename)
-    print(f"{path} - Total files under {limit} = {len(result)}")
-    print(result)
-    print("---")
+    return result
 
 
 def findOddFiles(path, limit):
@@ -115,17 +113,17 @@ if __name__ == "__main__":
     processFiles(MONTHS_PATH)
     print("marcas")
     processFiles(BRANDS_PATH)
+    logging.warning(findEmpty(BRANDS_PATH, LIMIT))
+    # findOddFiles(BRANDS_PATH, 2)
     print("modelos")
     processFiles(MODELO_PATH)
+    logging.warning(findEmpty(MODELO_PATH, LIMIT))
+    # findOddFiles(MODELO_PATH, 4)
     print("modelo (variacao)")
     processFiles(VARIACAO_PATH)
+    logging.warning(findEmpty(VARIACAO_PATH, LIMIT))
+    # findOddFiles(VARIACAO_PATH, 4)
     print("preco")
     processFiles(PRICE_PATH)
-    # findEmpty(BRANDS_PATH, LIMIT)
-    # findEmpty(MODELO_PATH, LIMIT)
-    # findEmpty(VARIACAO_PATH, LIMIT)
-    # findEmpty(PRICE_PATH, LIMIT)
-    findOddFiles(BRANDS_PATH, 2)
-    findOddFiles(MODELO_PATH, 4)
-    findOddFiles(VARIACAO_PATH, 4)
-    findOddFiles(PRICE_PATH, 7)
+    logging.warning(findEmpty(PRICE_PATH, LIMIT))
+    # findOddFiles(PRICE_PATH, 7)

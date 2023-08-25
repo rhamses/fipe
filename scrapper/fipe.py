@@ -18,6 +18,7 @@ MARCA_PATH = "data/indexes/marcas/"
 MODELO_PATH = "data/indexes/modelos/"
 VARIACAO_PATH = "data/indexes/variacao/"
 PRICE_PATH = "data/indexes/price/"
+ERROR_PATH = "data/preco-erro.json"
 """
 Considerar um array principal [1,2,3], onde cada número é o código do veículos
   1 - carros
@@ -334,7 +335,7 @@ def deleteMongo(collection):
 if __name__ == "__main__":
     try:
         if "--error" in sys.argv:
-            filenames = json.load(open("reprocessPrice.json"))
+            filenames = json.load(open(ERROR_PATH))
             for filename in filenames:
                 ## BLOCO DE PRICE
                 path = "https://veiculos.fipe.org.br/api/veiculos/ConsultarValorComTodosParametros"
@@ -380,13 +381,13 @@ if __name__ == "__main__":
                 # path=MODELO_PATH,
                 # FOLDERPATH=VARIACAO_PATH,
                 ## LÊ VARIACAO -> GERA PRECO
-                path=VARIACAO_PATH,
+                path=ERROR_PATH,
                 FOLDERPATH=PRICE_PATH,
                 ## LÊ MARCAS -> GERA MODELOS
                 # path=MARCA_PATH,
                 # FOLDERPATH=MODELO_PATH,
                 instance=1,
-                target=processThread,
+                target=processErro,
             )
     except Exception as e:
         logging.error(e)

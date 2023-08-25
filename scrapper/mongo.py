@@ -3,7 +3,7 @@ import json
 import threading
 import math
 from datetime import datetime
-from pymongo import MongoClient, UpdateOne, InsertOne
+from pymongo import MongoClient, UpdateOne, InsertOne, FindOne
 from bson import ObjectId
 from slugify import slugify
 from os import walk
@@ -98,11 +98,23 @@ def processMongo(filenames, dirpath):
                 model = mongo["db"][data["model"]]
                 mongoFilter = data["result"]
                 mongoData = {"$set": data["result"]}
-                queries.append(UpdateOne(mongoFilter, mongoData, upsert=True))
-            result = model.bulk_write(queries)
+                if model.find_one(data["result"]) is None:
+                    model.insert_one(data["result"])
+                # queries.append(UpdateOne(mongoFilter, mongoData, upsert=True))
+            # result = model.bulk_write(queries)
             mongo["client"].close()
     except Exception as e:
         logging.error(e)
+
+
+def processFilterPrice(filenames, dirpath):
+    filter = [293, 294, 295, 296, 297, 298, 299]
+    results = []
+    for filename in filenames:
+        if json.load(open(dirpath + filename)):
+            if int(filename.split("-")[0]) in filter:
+                results.append(filename)
+    processPrice(results, dirpath)
 
 
 def processPrice(filenames, dirpath):
@@ -302,8 +314,8 @@ if __name__ == "__main__":
         # startThread(path=MODELO_PATH, instance=12, target=processMongo)
         # startThread(path=VARIACAO_PATH, instance=1, target=processMongo)
         # deleteMongo("price_timeseries")
-        # startThread(path=PRICE_PATH, instance=12, target=processPrice)
-        createSearchView()
+        startThread(path=PRICE_PATH, instance=12, target=processFilterPrice)
+        # createSearchView()
     except Exception as e:
         logging.error("main error")
         logging.error(e)
