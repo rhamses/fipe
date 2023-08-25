@@ -53,6 +53,7 @@ node_modules/
 .nuxt
 .nitro
 .cache
+.firebase
 dist
 # Node dependencies
 node_modules
