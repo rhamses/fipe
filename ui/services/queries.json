@@ -1,0 +1,85 @@
+{
+  "searchModelos": [
+    {
+      "$search": {
+        "index": "modelos_autocomplete",
+        "text": {
+          "query": "",
+          "path": {
+            "wildcard": "*"
+          }
+        }
+      }
+    },
+    {
+      "$limit": 10
+    },
+    {
+      "$lookup": {
+        "from": "marcas",
+        "localField": "marca_id",
+        "foreignField": "_id",
+        "as": "marcas"
+      }
+    },
+    {
+      "$project": {
+        "name": 1,
+        "marca": "$marcas.slug",
+        "score": { "$meta": "searchScore" }
+      }
+    }
+  ],
+  "percentageQuery": [
+    {
+      "$match": {
+        "variacao_id": {
+          "$oid": null
+        },
+        "reference": {
+          "$gte": null,
+          "$lte": null
+        }
+      }
+    },
+    {
+      "$sort": {
+        "reference": 1
+      }
+    },
+    {
+      "$group": {
+        "_id": null,
+        "first": {
+          "$first": "$$ROOT"
+        },
+        "last": {
+          "$last": "$$ROOT"
+        }
+      }
+    },
+    {
+      "$project": {
+        "_id": 0,
+        "yearly": {
+          "$round": [
+            {
+              "$multiply": [
+                {
+                  "$subtract": [
+                    {
+                      "$divide": ["$last.price", "$first.price"]
+                    },
+                    1
+                  ]
+                },
+                100
+              ]
+            },
+            2
+          ]
+        }
+      }
+    }
+  ]
+}

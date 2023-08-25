@@ -1,0 +1,5 @@
+{
+  "devDependencies": {
+    "@nuxtjs/tailwindcss": "^6.8.0"
+  }
+}

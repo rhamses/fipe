@@ -2,7 +2,6 @@ node_modules
 api/
 *.log
 data/
-*.json
 *.txt
 mock/
 node/node_modules

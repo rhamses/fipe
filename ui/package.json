@@ -1,0 +1,23 @@
+{
+  "name": "nuxt-app",
+  "private": true,
+  "scripts": {
+    "build": "nuxt build",
+    "dev": "nuxt dev",
+    "generate": "nuxt generate",
+    "preview": "nuxt preview",
+    "postinstall": "nuxt prepare",
+    "deploy": "firebase deploy --only hosting"
+  },
+  "devDependencies": {
+    "@nuxt/devtools": "latest",
+    "@types/node": "^18.17.3",
+    "nuxt": "^3.6.5",
+    "nuxt-icon": "^0.5.0"
+  },
+  "dependencies": {
+    "realm-web": "^2.0.0",
+    "vue-chartjs": "^5.2.0",
+    "vue3-lottie": "^3.0.0"
+  }
+}
