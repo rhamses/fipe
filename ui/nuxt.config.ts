@@ -13,4 +13,9 @@ export default defineNuxtConfig({
       ],
     },
   },
+  nitro: {
+    future: {
+      nativeSWR: true,
+    },
+  },
 });
