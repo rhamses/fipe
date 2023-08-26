@@ -182,17 +182,20 @@ watch(variationModel, async (value) => {
 })
 
 watch(percentageModel, (value) => {
-  console.log("value", value)
-  window.scroll({
-    top: document.querySelector("#leads").offsetTop - 300,
-    left: 0,
-    behavior: 'smooth'
-  });
+  if (value) {
+    window.scroll({
+      top: document.querySelector("#leads").offsetTop - 300,
+      left: 0,
+      behavior: 'smooth'
+    });
+  }
 })
 
 watch(priceModel, (value) => {
-  const highlight = value.shift()
-  priceHighlight.value = highlight
+  if (value) {
+    const highlight = value.shift()
+    priceHighlight.value = highlight
+  }
 })
 
 mongoLastUpdate()
@@ -206,9 +209,16 @@ function selectItem(item) {
 
 function resetVariables() {
   searchItems.value = []
-  modelVariations.value = []
   searchModel.value = ""
+  marcaModel.value = ""
+  priceModel.value = ""
+  priceHighlight.value = ""
+  emailModel.value = ""
+  formModel.value = false
+  percentageModel.value = ""
   variationModel.value = ""
+  modelVariations.value = []
+  lastUpdated.value = ""
 }
 
 async function doVariacoes(modelID) {
