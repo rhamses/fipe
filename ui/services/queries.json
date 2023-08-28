@@ -2,7 +2,7 @@
   "searchModelos": [
     {
       "$search": {
-        "index": "modelos_autocomplete",
+        "index": "marcas_modelos_autocomplete",
         "text": {
           "query": "",
           "path": {
@@ -12,21 +12,16 @@
       }
     },
     {
-      "$limit": 100
-    },
-    {
-      "$lookup": {
-        "from": "marcas",
-        "localField": "marca_id",
-        "foreignField": "_id",
-        "as": "marcas"
-      }
-    },
-    {
       "$project": {
-        "name": 1,
-        "marca": "$marcas.slug",
-        "score": { "$meta": "searchScore" }
+        "marca_name": 1,
+        "marca_slug": 1,
+        "marca_id": 1,
+        "modelo_name": 1,
+        "modelo_slug": 1,
+        "modelo_id": 1,
+        "score": {
+          "$meta": "searchScore"
+        }
       }
     }
   ],
@@ -79,6 +74,40 @@
             2
           ]
         }
+      }
+    }
+  ],
+  "mergeModelosMarcas": [
+    {
+      "$lookup": {
+        "from": "marcas",
+        "localField": "marca_id",
+        "foreignField": "_id",
+        "as": "marcas"
+      }
+    },
+    {
+      "$unwind": {
+        "path": "$marcas",
+        "preserveNullAndEmptyArrays": false
+      }
+    },
+    {
+      "$project": {
+        "_id": 0,
+        "marca_name": "$marcas.name",
+        "marca_slug": "$marcas.slug",
+        "marca_id": "$marcas._id",
+        "modelo_name": "$name",
+        "modelo_slug": "$slug",
+        "modelo_id": "$_id"
+      }
+    },
+    {
+      "$merge": {
+        "into": "marcas_modelos",
+        "whenMatched": "replace",
+        "whenNotMatched": "insert"
       }
     }
   ]

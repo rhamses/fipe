@@ -34,7 +34,7 @@ class DataAPI {
   searchModelos(text) {
     searchModelos[0]["$search"].text.query = text;
     this.fetchBody["pipeline"] = searchModelos;
-    this.collection = "modelos";
+    this.collection = "marcas_modelos";
     this.action = "aggregate";
     return this.load({ body: searchModelos });
   }

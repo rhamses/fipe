@@ -48,7 +48,7 @@
                   <button @click="selectItem(item)" type="button" class="flex p-5 border-b border-solid w-full">
                     🚗
                     <p class="pl-2 uppercase">
-                      {{ item.name }}
+                      {{ item.marca_name }} {{ item.modelo_name }}
                     </p>
                   </button>
                 </li>
@@ -201,10 +201,10 @@ watch(priceModel, (value) => {
 mongoLastUpdate()
 
 function selectItem(item) {
-  searchModel.value = item.name
+  searchModel.value = item.marca_name + " " + item.modelo_name
   searchItems.value = []
-  marcaModel.value = item.marca[0]
-  doVariacoes(item._id)
+  marcaModel.value = item.marca_id
+  doVariacoes(item.modelo_id)
 }
 
 function resetVariables() {
@@ -242,7 +242,7 @@ function doSearch(e) {
     const API = new DataApi(dataApiParams);
     if (e.target.value) {
       searchModel.value = e.target.value;
-      API.collection = "modelos"
+      API.collection = "marcas_modelos"
       searchItems.value = await API.searchModelos(searchModel.value)
     } else {
       resetVariables()
