@@ -1,7 +1,7 @@
 <template>
   <main>
     <Header />
-    <section id="heroSearch" class="dark:bg-cyan-300 min-h-screen py-10 md:flex md:items-center">
+    <section id="heroSearch" class="bg-cyan-300 min-h-screen py-10 md:flex md:items-center">
       <div class="h-full md:flex container mx-auto">
         <div class="px-10 z-10 relative flex basis-1/2 md:items-center">
           <div>
