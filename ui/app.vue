@@ -203,7 +203,7 @@ mongoLastUpdate()
 function selectItem(item) {
   searchModel.value = item.marca_name + " " + item.modelo_name
   searchItems.value = []
-  marcaModel.value = item.marca_id
+  marcaModel.value = item.marca_slug
   doVariacoes(item.modelo_id)
 }
 
@@ -288,7 +288,7 @@ async function doPrice(variationId) {
 async function doPercentage(variationId) {
   const API = new DataApi(dataApiParams);
   const variacao_id = variationId
-  const from = new Date(new Date().getUTCFullYear() + "-" + (new Date().getUTCMonth() - 6) + "-1").getTime()
+  const from = new Date(new Date().getUTCFullYear(), (new Date().getUTCMonth() - 6), 1).getTime()
   const to = new Date().getTime()
   percentageModel.value = await API.percentageValue({ variacao_id, from, to })
 }
