@@ -3,10 +3,10 @@ import json
 import threading
 import math
 from datetime import datetime
-from pymongo import MongoClient, UpdateOne, InsertOne, FindOne
+from pymongo import MongoClient, UpdateOne, InsertOne
 from bson import ObjectId
 from slugify import slugify
-from os import walk
+from os import walk, path
 
 logFile = "output-mongo-" + str(datetime.now()) + ".log"
 logging.basicConfig(filename=logFile, encoding="utf-8")
@@ -15,8 +15,17 @@ MARCA_PATH = "data/indexes/marcas/"
 MODELO_PATH = "data/indexes/modelos/"
 VARIACAO_PATH = "data/indexes/variacao/"
 PRICE_PATH = "data/indexes/price/"
+PROCESSED_FILE = "data/indexes/processed/"
 MONGO_CONNECTION_STRING = "mongodb+srv://ambiente1:HzRYel5sSP1av7SC@cluster0.zeadg.gcp.mongodb.net/?retryWrites=true&w=majority"
 MONGO_DB = "fipe"
+FILTER_MONTH = [293, 294, 295, 296, 297, 298, 299]
+
+
+def moveFile(filename):
+    print(filename)
+    f = open(PROCESSED_FILE + filename, "w")
+    f.write()
+    f.close()
 
 
 def getMarcas(item):
@@ -108,17 +117,18 @@ def processMongo(filenames, dirpath):
 
 
 def processFilterPrice(filenames, dirpath):
-    filter = [293, 294, 295, 296, 297, 298, 299]
     results = []
     for filename in filenames:
-        if json.load(open(dirpath + filename)):
-            if int(filename.split("-")[0]) in filter:
-                results.append(filename)
+        if path.isfile(PROCESSED_FILE + filename) is False:
+            if json.load(open(dirpath + filename)):
+                if int(filename.split("-")[0]) in FILTER_MONTH:
+                    results.append(filename)
     processPrice(results, dirpath)
 
 
 def processPrice(filenames, dirpath):
     try:
+        # print("filenames", filenames)
         for filename in filenames:
             msgErr = "Arquivo False"
             fileContent = json.load(open(dirpath + filename))
@@ -169,6 +179,7 @@ def processPrice(filenames, dirpath):
                     ## Check if entry already exists
                     ## If is not, include it
                     if model.find_one(data) is None:
+                        moveFile(filename)
                         model.insert_one(data)
                 mongo["client"].close()
             else:
@@ -314,7 +325,7 @@ if __name__ == "__main__":
         # startThread(path=MODELO_PATH, instance=12, target=processMongo)
         # startThread(path=VARIACAO_PATH, instance=1, target=processMongo)
         # deleteMongo("price_timeseries")
-        startThread(path=PRICE_PATH, instance=12, target=processFilterPrice)
+        startThread(path=PRICE_PATH, instance=1, target=processFilterPrice)
         # createSearchView()
     except Exception as e:
         logging.error("main error")
