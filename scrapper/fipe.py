@@ -13,7 +13,7 @@ from bson import ObjectId
 
 logFile = "output-index-" + str(datetime.now()) + ".log"
 logging.basicConfig(filename=logFile, encoding="utf-8")
-indexesPath = "data/indexes"
+indexesPath = "data/indexes/"
 MARCA_PATH = "data/indexes/marcas/"
 MODELO_PATH = "data/indexes/modelos/"
 VARIACAO_PATH = "data/indexes/variacao/"
@@ -119,33 +119,34 @@ def uploadToGoogle(folder, data, fileName="index.json"):
 def processMeses():
     try:
         # write anos onto folder
-        folder = "indexes"
         fileName = "meses.json"
         result = requestData(
             path="https://veiculos.fipe.org.br/api/veiculos/ConsultarTabelaDeReferencia"
         )
-        saveData(folder=folder, file=fileName, data=result)
+        saveData(folder=indexesPath, file=fileName, data=result)
     except Exception as e:
         logging.error("(processMeses) - " + str(e))
 
 
-def processMarcas(vehicleIndex):
+def processMarcas():
     try:
-        # Le pasta anos
-        with open("indexes/meses.json") as meses:
-            meses = json.load(meses)
-            for mes in meses:
-                codigoTabelaReferencia = mes["Codigo"]
-                path = "https://veiculos.fipe.org.br/api/veiculos/ConsultarMarcas"
-                data = {
-                    "codigoTabelaReferencia": codigoTabelaReferencia,
-                    "codigoTipoVeiculo": vehicleIndex,
-                }
-                result = requestData(path=path, data=data)
-                # write marcas onto folder
-                folder = "indexes/marcas"
-                fileName = f"{codigoTabelaReferencia}-{vehicleIndex}.json"
-                saveData(folder=folder, file=fileName, data=result)
+        vehicles = [1, 2, 3]
+        for vehicleIndex in vehicles:
+            with open(indexesPath + "meses.json") as meses:
+                meses = json.load(meses)
+                for mes in meses:
+                    codigoTabelaReferencia = mes["Codigo"]
+                    filename = f"{codigoTabelaReferencia}-{vehicleIndex}.json"
+                    if os.path.exists(MARCA_PATH + filename) is False:
+                        path = (
+                            "https://veiculos.fipe.org.br/api/veiculos/ConsultarMarcas"
+                        )
+                        data = {
+                            "codigoTabelaReferencia": codigoTabelaReferencia,
+                            "codigoTipoVeiculo": vehicleIndex,
+                        }
+                        result = requestData(path=path, data=data)
+                        saveData(folder=MARCA_PATH, file=filename, data=result)
     except Exception as e:
         logging.error("(processMarcas) - " + str(e))
 
@@ -170,7 +171,7 @@ def processThread(filenames, dirpath, FOLDERPATH, error):
                         codigoTipoCombustivel = item["Value"].split("-")[1]
                         anoModelo = item["Value"].split("-")[0]
                         ## generate filename
-                        filename = f"{codigoTabelaReferencia}-{codigoMarca}-{codigoModelo}-{codigoTipoCombustivel}-{anoModelo}-{codigoTipoVeiculo}.json"
+                        newFilename = f"{codigoTabelaReferencia}-{codigoMarca}-{codigoModelo}-{codigoTipoCombustivel}-{anoModelo}-{codigoTipoVeiculo}.json"
                         data = {
                             "codigoMarca": codigoMarca,
                             "codigoModelo": codigoModelo,
@@ -188,16 +189,7 @@ def processThread(filenames, dirpath, FOLDERPATH, error):
                         codigoModelo = str(item["Value"])
                         ## Estou assumindo que se tiver a marca não precisa investigar se o
                         ## modelo existe.
-                        fileName = (
-                            codigoTabelaReferencia
-                            + "-"
-                            + codigoMarca
-                            + "-"
-                            + codigoModelo
-                            + "-"
-                            + codigoTipoVeiculo
-                            + ".json"
-                        )
+                        newFilename = f"{codigoTabelaReferencia}-{codigoMarca}-{codigoModelo}-{codigoTipoVeiculo}.json"
                         data = {
                             "codigoMarca": codigoMarca,
                             "codigoModelo": codigoModelo,
@@ -211,25 +203,22 @@ def processThread(filenames, dirpath, FOLDERPATH, error):
                         codigoTabelaReferencia = filename.split("-")[0]
                         codigoTipoVeiculo = filename.split("-")[1]
                         codigoMarca = item["Value"]
+                        newFilename = f"{codigoTabelaReferencia}-{codigoMarca}-{codigoTipoVeiculo}.json"
                         data = {
                             "codigoTabelaReferencia": codigoTabelaReferencia,
                             "codigoTipoVeiculo": codigoTipoVeiculo,
                             "codigoMarca": codigoMarca,
                         }
-                    elif "marcas" in FOLDERPATH:
-                        path = (
-                            "https://veiculos.fipe.org.br/api/veiculos/ConsultarMarcas"
-                        )
-                        codigoTabelaReferencia = filename.split("-")[0]
-                        codigoTipoVeiculo = filename.split("-")[1]
-                        data = {
-                            "codigoTabelaReferencia": codigoTabelaReferencia,
-                            "codigoTipoVeiculo": codigoTipoVeiculo,
-                        }
-
-                    if os.path.exists(FOLDERPATH + filename) == False:
+                    else:
+                        break
+                    # logging.warning("->" + FOLDERPATH + newFilename)
+                    if os.path.exists(FOLDERPATH + newFilename) == False:
                         result = requestData(path=path, data=data)
-                        saveData(folder=FOLDERPATH, file=filename, data=result)
+                        if result:
+                            saveData(folder=FOLDERPATH, file=newFilename, data=result)
+                        else:
+                            raise Exception("o arquivo deu false" + newFilename)
+
     except Exception as e:
         logging.error("--------------------")
         logging.error("FOLDERPATH - " + FOLDERPATH)
@@ -247,27 +236,6 @@ def processThread(filenames, dirpath, FOLDERPATH, error):
 #
 #
 ########################################
-
-
-def startMongo():
-    for dirpath, dirnames, filenames in walk(indexesPath + "/price"):
-        numberOfInstances = 50
-        instances = math.ceil(len(filenames) / numberOfInstances)
-        threads = []
-        pieces = []
-        current = 0
-        while True:
-            data = filenames[current : (current + instances)]
-            if len(data) == 0:
-                break
-            pieces.append(data)
-            current = current + instances
-        for item in pieces:
-            threads.append(threading.Thread(target=processMongo, args=(item, dirpath)))
-        for t in threads:
-            t.start()
-        for t in threads:
-            t.join()
 
 
 def startThread(path, instance, target, FOLDERPATH):
@@ -294,42 +262,6 @@ def startThread(path, instance, target, FOLDERPATH):
 
 
 ########################################
-
-"""
-Collection brand_model
-_id,
-model,
-model-slug,
-brand,
-brand-slug,
-codigoFipe,
-vehicle: {
-  type: Int,
-  name: String
-}
-
-Collection price_timeseries
-_id,
-model_variation_id ObjectId
-price Float
-reference Timestamp (mes de referencia)
-
-Collection model_variation
-_id,
-brand_model_id,
-year,
-fuel,
-"""
-
-
-def deleteMongo(collection):
-    # Provide the mongodb atlas url to connect python to mongodb using pymongo
-    CONNECTION_STRING = "mongodb+srv://ambiente1:HzRYel5sSP1av7SC@cluster0.zeadg.gcp.mongodb.net/?retryWrites=true&w=majority"
-    # Create a connection using MongoClient. You can import MongoClient or use pymongo.MongoClient
-    client = MongoClient(CONNECTION_STRING)
-    ##
-    db = client["fipe"]
-    db[collection].delete_many({})
 
 
 if __name__ == "__main__":
@@ -371,23 +303,37 @@ if __name__ == "__main__":
                 result = requestData(path=path, data=data)
                 saveData(folder=PRICE_PATH, file=filename, data=result)
         else:
-            # startMongo()
-            # deleteMongo("price_timeseries")
-            """
-            => PROCESSA MODELOS
-            <= GERA VARIACOES DE CADA MODELO"""
+            ## LÊ LISTA DE MESES
+            # processMeses()
+            ## LÊ LISTA DE MESES -> GERA MARCAS
+            # processMarcas()
+            ## LÊ MARCAS -> GERA MODELOS
+            # startThread(
+            #     path=MARCA_PATH,
+            #     FOLDERPATH=MODELO_PATH,
+            #     instance=3,
+            #     target=processThread,
+            # )
+            ## LÊ MODELOS -> GERA VARIACOES
+            # startThread(
+            #     path=MODELO_PATH,
+            #     FOLDERPATH=VARIACAO_PATH,
+            #     instance=300,
+            #     target=processThread,
+            # )
+            ## LÊ VARIACAO -> GERA PRECO
             startThread(
-                ## LÊ MODELOS -> GERA VARIACOES
-                # path=MODELO_PATH,
-                # FOLDERPATH=VARIACAO_PATH,
-                ## LÊ VARIACAO -> GERA PRECO
-                path=ERROR_PATH,
+                path=VARIACAO_PATH,
                 FOLDERPATH=PRICE_PATH,
-                ## LÊ MARCAS -> GERA MODELOS
-                # path=MARCA_PATH,
-                # FOLDERPATH=MODELO_PATH,
-                instance=1,
-                target=processErro,
+                instance=300,
+                target=processThread,
             )
+            # Le Erros de Price
+            # startThread(
+            #     path=ERROR_PATH,
+            #     FOLDERPATH=PRICE_PATH,
+            #     instance=1,
+            #     target=processErro,
+            # )
     except Exception as e:
         logging.error(e)

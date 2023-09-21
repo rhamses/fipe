@@ -6,7 +6,34 @@ from datetime import datetime
 from pymongo import MongoClient, UpdateOne, InsertOne
 from bson import ObjectId
 from slugify import slugify
-from os import walk, path
+from os import walk, path, rename
+
+
+"""
+Collection brand_model
+_id,
+model,
+model-slug,
+brand,
+brand-slug,
+codigoFipe,
+vehicle: {
+  type: Int,
+  name: String
+}
+
+Collection price_timeseries
+_id,
+model_variation_id ObjectId
+price Float
+reference Timestamp (mes de referencia)
+
+Collection model_variation
+_id,
+brand_model_id,
+year,
+fuel,
+"""
 
 logFile = "output-mongo-" + str(datetime.now()) + ".log"
 logging.basicConfig(filename=logFile, encoding="utf-8")
@@ -15,16 +42,15 @@ MARCA_PATH = "data/indexes/marcas/"
 MODELO_PATH = "data/indexes/modelos/"
 VARIACAO_PATH = "data/indexes/variacao/"
 PRICE_PATH = "data/indexes/price/"
-PROCESSED_FILE = "data/indexes/processed/"
+PROCESSED_FILE = "data/indexes/price-processed/"
 MONGO_CONNECTION_STRING = "mongodb+srv://ambiente1:HzRYel5sSP1av7SC@cluster0.zeadg.gcp.mongodb.net/?retryWrites=true&w=majority"
 MONGO_DB = "fipe"
-FILTER_MONTH = [293, 294, 295, 296, 297, 298, 299]
+FILTER_MONTH = [300, 301]
 
 
 def moveFile(filename):
-    print(filename)
     f = open(PROCESSED_FILE + filename, "w")
-    f.write()
+    f.write("")
     f.close()
 
 
@@ -179,8 +205,8 @@ def processPrice(filenames, dirpath):
                     ## Check if entry already exists
                     ## If is not, include it
                     if model.find_one(data) is None:
-                        moveFile(filename)
                         model.insert_one(data)
+                        moveFile(filename)
                 mongo["client"].close()
             else:
                 logging.warning(msgErr)
@@ -318,6 +344,16 @@ def createSearchView():
     print(result)
 
 
+def filterFiles():
+    for dirpath, dirnames, filenames in walk(PRICE_PATH):
+        for filename in filenames:
+            fileExists = json.load(open(dirpath + filename))
+            if len(filename.split("-")) != 6:
+                rename(dirpath + filename, "data/indexes/not-6-price/" + filename)
+            elif fileExists is False:
+                rename(dirpath + filename, "data/indexes/is-false-price/" + filename)
+
+
 if __name__ == "__main__":
     try:
         # deleteDuplicates("modelos")
@@ -325,8 +361,10 @@ if __name__ == "__main__":
         # startThread(path=MODELO_PATH, instance=12, target=processMongo)
         # startThread(path=VARIACAO_PATH, instance=1, target=processMongo)
         # deleteMongo("price_timeseries")
-        startThread(path=PRICE_PATH, instance=1, target=processFilterPrice)
+        # startThread(path=PRICE_PATH, instance=50, target=processPrice)
+        startThread(path=PRICE_PATH, instance=20, target=processFilterPrice)
         # createSearchView()
+        # filterFiles()
     except Exception as e:
         logging.error("main error")
         logging.error(e)

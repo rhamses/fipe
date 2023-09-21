@@ -7,14 +7,24 @@
       <p class="font-bold text-2xl text-gray-700 mb-2">
         R$ {{ money }}
       </p>
-      <p v-if="variation">
-        <span v-if="variation[0].yearly < 0"> Desvalorização no ano </span>
-        <span v-else> Valorização no ano </span>
-        <br>
-        <b class="font-bold text-xl"
-          :class="{ 'text-red-500': variation[0].yearly < 0, 'text-green-500': variation[0].yearly > 0 }">
-          {{ variation[0].yearly < 0 ? variation[0].yearly * -1 : variation[0].yearly }} % </b>
-      </p>
+      <div class="flex justify-between">
+        <p v-if="monthly">
+          <span v-if="monthly[0].yearly < 0"> Desvalorização no mês </span>
+          <span v-else> Valorização no mês </span>
+          <br>
+          <b class="font-bold text-xl"
+            :class="{ 'text-red-500': monthly[0].yearly < 0, 'text-green-500': monthly[0].yearly > 0 }">
+            {{ monthly[0].yearly < 0 ? monthly[0].yearly : monthly[0].yearly }} % </b>
+        </p>
+        <p v-if="variation">
+          <span v-if="variation[0].yearly < 0"> Desvalorização no ano </span>
+          <span v-else> Valorização no ano </span>
+          <br>
+          <b class="font-bold text-xl"
+            :class="{ 'text-red-500': variation[0].yearly < 0, 'text-green-500': variation[0].yearly > 0 }">
+            {{ variation[0].yearly < 0 ? variation[0].yearly : variation[0].yearly }} % </b>
+        </p>
+      </div>
     </div>
     <!-- <div class="px-6 pt-4 pb-2">
       <span
@@ -29,7 +39,7 @@
 
 <script setup>
 import Months from "../services/months"
-const { title, item, variation, cssClass } = defineProps(["title", "item", "variation", "cssClass"])
+const { title, item, variation, cssClass, monthly } = defineProps(["title", "item", "variation", "cssClass", "monthly"])
 const { price, reference } = item
 const money = ref("")
 const month = ref("")

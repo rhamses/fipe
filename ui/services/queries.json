@@ -30,16 +30,12 @@
       "$match": {
         "variacao_id": {
           "$oid": null
-        },
-        "reference": {
-          "$gte": null,
-          "$lte": null
         }
       }
     },
     {
       "$sort": {
-        "reference": 1
+        "reference": -1
       }
     },
     {
@@ -63,7 +59,7 @@
                 {
                   "$subtract": [
                     {
-                      "$divide": ["$last.price", "$first.price"]
+                      "$divide": ["$first.price", "$last.price"]
                     },
                     1
                   ]

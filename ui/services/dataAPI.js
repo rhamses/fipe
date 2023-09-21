@@ -38,23 +38,27 @@ class DataAPI {
     this.action = "aggregate";
     return this.load({ body: searchModelos });
   }
-  percentageValue(params) {
-    const { variacao_id, from, to } = params;
-    percentageQuery[0]["$match"]["variacao_id"]["$oid"] = variacao_id;
-    percentageQuery[0]["$match"]["reference"]["$gte"] = {
-      $date: {
-        $numberLong: String(from),
-      },
-    };
-    percentageQuery[0]["$match"]["reference"]["$lte"] = {
-      $date: {
-        $numberLong: String(to),
-      },
-    };
-    this.fetchBody["pipeline"] = percentageQuery;
+  percentageValue(variacao_id, type) {
+    const newPipeline = [...percentageQuery];
+    if (type === "monthly") {
+      newPipeline.splice(1, 0, { $limit: 2 });
+    }
+    if (type === "yearly") {
+      newPipeline[0]["$match"]["reference"] = {
+        $gte: {
+          $date: {
+            $numberLong: String(
+              new Date(new Date().getUTCFullYear(), 0, 1).getTime()
+            ),
+          },
+        },
+      };
+    }
+    newPipeline[0]["$match"]["variacao_id"]["$oid"] = variacao_id;
+    this.fetchBody["pipeline"] = newPipeline;
     this.collection = "price_timeseries";
     this.action = "aggregate";
-    return this.load({ body: percentageQuery });
+    return this.load({ body: newPipeline });
   }
   load() {
     return fetch(this.fetchUrl, {
