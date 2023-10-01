@@ -233,7 +233,8 @@ async function doVariacoes(modelID) {
     "filter": {
       "modelo_id": {
         "$oid": modelID
-      }
+      },
+      "ano": { "$ne": 32000 }
     }
   }
   modelVariations.value = await API.find(body)
