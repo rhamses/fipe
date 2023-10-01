@@ -1,3 +1,4 @@
+import os
 import logging
 import json
 import threading
@@ -45,7 +46,8 @@ PRICE_PATH = "data/indexes/price/"
 PROCESSED_FILE = "data/indexes/price-processed/"
 MONGO_CONNECTION_STRING = "mongodb+srv://ambiente1:HzRYel5sSP1av7SC@cluster0.zeadg.gcp.mongodb.net/?retryWrites=true&w=majority"
 MONGO_DB = "fipe"
-FILTER_MONTH = [300, 301]
+# MONTH_REFERENCE = [293, 294, 295, 296, 297, 298, 299, 300, 301]
+MONTH_REFERENCE = [299]
 
 
 def moveFile(filename):
@@ -147,7 +149,7 @@ def processFilterPrice(filenames, dirpath):
     for filename in filenames:
         if path.isfile(PROCESSED_FILE + filename) is False:
             if json.load(open(dirpath + filename)):
-                if int(filename.split("-")[0]) in FILTER_MONTH:
+                if int(filename.split("-")[0]) in MONTH_REFERENCE:
                     results.append(filename)
     processPrice(results, dirpath)
 
@@ -204,9 +206,10 @@ def processPrice(filenames, dirpath):
                     }
                     ## Check if entry already exists
                     ## If is not, include it
-                    if model.find_one(data) is None:
-                        model.insert_one(data)
-                        moveFile(filename)
+                    if os.path.exists(PROCESSED_FILE + filename) == False:
+                        if model.find_one(data) is None:
+                            model.insert_one(data)
+                            moveFile(filename)
                 mongo["client"].close()
             else:
                 logging.warning(msgErr)
@@ -362,7 +365,7 @@ if __name__ == "__main__":
         # startThread(path=VARIACAO_PATH, instance=1, target=processMongo)
         # deleteMongo("price_timeseries")
         # startThread(path=PRICE_PATH, instance=50, target=processPrice)
-        startThread(path=PRICE_PATH, instance=20, target=processFilterPrice)
+        startThread(path=PRICE_PATH, instance=50, target=processFilterPrice)
         # createSearchView()
         # filterFiles()
     except Exception as e:

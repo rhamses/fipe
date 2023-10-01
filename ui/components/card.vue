@@ -5,7 +5,7 @@
         {{ month }} de {{ year }}
       </div>
       <p class="font-bold text-2xl text-gray-700 mb-2">
-        R$ {{ money }}
+        R$ {{ filterMoney(item.price) }}
       </p>
       <div class="flex justify-between">
         <p v-if="monthly">
@@ -40,11 +40,9 @@
 <script setup>
 import Months from "../services/months"
 const { title, item, variation, cssClass, monthly } = defineProps(["title", "item", "variation", "cssClass", "monthly"])
-const { price, reference } = item
-const money = ref("")
+const { reference } = item
 const month = ref("")
 const year = ref("")
-money.value = filterMoney()
 month.value = filterMonth()
 year.value = new Date(reference).getFullYear()
 
@@ -52,8 +50,8 @@ function filterMonth() {
   return Months[new Date(reference).getUTCMonth() + 1]
 }
 
-function filterMoney() {
-  const money = String(price)
+function filterMoney(value) {
+  const money = String(value)
   return money.substr(0, money.length - 3) + "." + money.substr(-3) + ",00"
 }
 </script>

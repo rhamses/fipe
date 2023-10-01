@@ -19,6 +19,7 @@ MODELO_PATH = "data/indexes/modelos/"
 VARIACAO_PATH = "data/indexes/variacao/"
 PRICE_PATH = "data/indexes/price/"
 ERROR_PATH = "data/preco-erro.json"
+MONTH_REFERENCE = [293, 294, 295, 296, 297, 298, 299, 300, 301]
 """
 Considerar um array principal [1,2,3], onde cada número é o código do veículos
   1 - carros
@@ -60,7 +61,7 @@ def checkFolder(folder):
         currentFolder += "/"
 
 
-def requestData(path, data=None):
+def requestData(path, context, newFilename, data=None):
     try:
         result = requests.post(path, data=data)
         body = result.json()
@@ -69,6 +70,9 @@ def requestData(path, data=None):
         else:
             raise Exception
     except Exception as e:
+        f = open(indexesPath + context + "-error/" + newFilename, "w")
+        f.write("")
+        f.close()
         logging.warning(path)
         logging.warning(data)
         logging.warning(result)
@@ -151,73 +155,96 @@ def processMarcas():
         logging.error("(processMarcas) - " + str(e))
 
 
+def mapFilename(filename):
+    if int(filename.split("-")[0]) in MONTH_REFERENCE:
+        return filename
+
+
 def processThread(filenames, dirpath, FOLDERPATH, error):
     try:
-        for filename in filenames:
-            with open(dirpath + filename) as itemFile:
-                items = json.load(itemFile)
-                filename = filename.replace(".json", "").replace(dirpath + "/", "")
-                ## Check para payload de Modelos
-                ## Que afeta quando FOLDERPATH = "variacao"
-                if "Modelos" in items:
-                    items = items["Modelos"]
-                for item in items:
-                    if "price" in FOLDERPATH:
-                        path = "https://veiculos.fipe.org.br/api/veiculos/ConsultarValorComTodosParametros"
-                        codigoTabelaReferencia = filename.split("-")[0]
-                        codigoMarca = filename.split("-")[1]
-                        codigoModelo = filename.split("-")[2]
-                        codigoTipoVeiculo = filename.split("-")[3]
-                        codigoTipoCombustivel = item["Value"].split("-")[1]
-                        anoModelo = item["Value"].split("-")[0]
-                        ## generate filename
-                        newFilename = f"{codigoTabelaReferencia}-{codigoMarca}-{codigoModelo}-{codigoTipoCombustivel}-{anoModelo}-{codigoTipoVeiculo}.json"
-                        data = {
-                            "codigoMarca": codigoMarca,
-                            "codigoModelo": codigoModelo,
-                            "codigoTabelaReferencia": codigoTabelaReferencia,
-                            "codigoTipoCombustivel": codigoTipoCombustivel,
-                            "codigoTipoVeiculo": codigoTipoVeiculo,
-                            "anoModelo": anoModelo,
-                            "tipoConsulta": "tradicional",
-                        }
-                    elif "variacao" in FOLDERPATH:
-                        path = "https://veiculos.fipe.org.br/api/veiculos/ConsultarAnoModelo"
-                        codigoTabelaReferencia = filename.split("-")[0]
-                        codigoMarca = filename.split("-")[1]
-                        codigoTipoVeiculo = filename.split("-")[2]
-                        codigoModelo = str(item["Value"])
-                        ## Estou assumindo que se tiver a marca não precisa investigar se o
-                        ## modelo existe.
-                        newFilename = f"{codigoTabelaReferencia}-{codigoMarca}-{codigoModelo}-{codigoTipoVeiculo}.json"
-                        data = {
-                            "codigoMarca": codigoMarca,
-                            "codigoModelo": codigoModelo,
-                            "codigoTabelaReferencia": codigoTabelaReferencia,
-                            "codigoTipoVeiculo": codigoTipoVeiculo,
-                        }
-                    elif "modelos" in FOLDERPATH:
-                        path = (
-                            "https://veiculos.fipe.org.br/api/veiculos/ConsultarModelos"
-                        )
-                        codigoTabelaReferencia = filename.split("-")[0]
-                        codigoTipoVeiculo = filename.split("-")[1]
-                        codigoMarca = item["Value"]
-                        newFilename = f"{codigoTabelaReferencia}-{codigoMarca}-{codigoTipoVeiculo}.json"
-                        data = {
-                            "codigoTabelaReferencia": codigoTabelaReferencia,
-                            "codigoTipoVeiculo": codigoTipoVeiculo,
-                            "codigoMarca": codigoMarca,
-                        }
-                    else:
-                        break
-                    # logging.warning("->" + FOLDERPATH + newFilename)
-                    if os.path.exists(FOLDERPATH + newFilename) == False:
-                        result = requestData(path=path, data=data)
-                        if result:
-                            saveData(folder=FOLDERPATH, file=newFilename, data=result)
+        if len(MONTH_REFERENCE) > 0:
+            filenames = list(filter(mapFilename, filenames))
+        if len(filenames) > 0:
+            for filename in filenames:
+                with open(dirpath + filename) as itemFile:
+                    items = json.load(itemFile)
+                    filename = filename.replace(".json", "").replace(dirpath + "/", "")
+                    ## Check para payload de Modelos
+                    ## Que afeta quando FOLDERPATH = "variacao"
+                    if "Modelos" in items:
+                        items = items["Modelos"]
+                    for item in items:
+                        if "price" in FOLDERPATH:
+                            context = "price"
+                            path = "https://veiculos.fipe.org.br/api/veiculos/ConsultarValorComTodosParametros"
+                            codigoTabelaReferencia = filename.split("-")[0]
+                            codigoMarca = filename.split("-")[1]
+                            codigoModelo = filename.split("-")[2]
+                            codigoTipoVeiculo = filename.split("-")[3]
+                            codigoTipoCombustivel = item["Value"].split("-")[1]
+                            anoModelo = item["Value"].split("-")[0]
+                            ## generate filename
+                            newFilename = f"{codigoTabelaReferencia}-{codigoMarca}-{codigoModelo}-{codigoTipoCombustivel}-{anoModelo}-{codigoTipoVeiculo}.json"
+                            data = {
+                                "codigoMarca": codigoMarca,
+                                "codigoModelo": codigoModelo,
+                                "codigoTabelaReferencia": codigoTabelaReferencia,
+                                "codigoTipoCombustivel": codigoTipoCombustivel,
+                                "codigoTipoVeiculo": codigoTipoVeiculo,
+                                "anoModelo": anoModelo,
+                                "tipoConsulta": "tradicional",
+                            }
+                        elif "variacao" in FOLDERPATH:
+                            context = "variacao"
+                            path = "https://veiculos.fipe.org.br/api/veiculos/ConsultarAnoModelo"
+                            codigoTabelaReferencia = filename.split("-")[0]
+                            codigoMarca = filename.split("-")[1]
+                            codigoTipoVeiculo = filename.split("-")[2]
+                            codigoModelo = str(item["Value"])
+                            ## Estou assumindo que se tiver a marca não precisa investigar se o
+                            ## modelo existe.
+                            newFilename = f"{codigoTabelaReferencia}-{codigoMarca}-{codigoModelo}-{codigoTipoVeiculo}.json"
+                            data = {
+                                "codigoMarca": codigoMarca,
+                                "codigoModelo": codigoModelo,
+                                "codigoTabelaReferencia": codigoTabelaReferencia,
+                                "codigoTipoVeiculo": codigoTipoVeiculo,
+                            }
+                        elif "modelos" in FOLDERPATH:
+                            context = "modelos"
+                            path = "https://veiculos.fipe.org.br/api/veiculos/ConsultarModelos"
+                            codigoTabelaReferencia = filename.split("-")[0]
+                            codigoTipoVeiculo = filename.split("-")[1]
+                            codigoMarca = item["Value"]
+                            newFilename = f"{codigoTabelaReferencia}-{codigoMarca}-{codigoTipoVeiculo}.json"
+                            data = {
+                                "codigoTabelaReferencia": codigoTabelaReferencia,
+                                "codigoTipoVeiculo": codigoTipoVeiculo,
+                                "codigoMarca": codigoMarca,
+                            }
                         else:
-                            raise Exception("o arquivo deu false" + newFilename)
+                            break
+                        # logging.warning("->" + FOLDERPATH + newFilename)
+                        # print("aaa", indexesPath + context + "-error/" + newFilename)
+                        if (
+                            os.path.exists(FOLDERPATH + newFilename) == False
+                            and os.path.exists(
+                                indexesPath + context + "-error/" + newFilename
+                            )
+                            == False
+                        ):
+                            result = requestData(
+                                path=path,
+                                data=data,
+                                context=context,
+                                newFilename=newFilename,
+                            )
+                            if result:
+                                saveData(
+                                    folder=FOLDERPATH, file=newFilename, data=result
+                                )
+                            else:
+                                raise Exception("o arquivo deu false" + newFilename)
 
     except Exception as e:
         logging.error("--------------------")
@@ -253,7 +280,10 @@ def startThread(path, instance, target, FOLDERPATH):
             current = current + instances
         for item in pieces:
             threads.append(
-                threading.Thread(target=target, args=(item, dirpath, FOLDERPATH, False))
+                threading.Thread(
+                    target=target,
+                    args=(item, dirpath, FOLDERPATH, False),
+                )
             )
         for t in threads:
             t.start()
@@ -266,74 +296,74 @@ def startThread(path, instance, target, FOLDERPATH):
 
 if __name__ == "__main__":
     try:
-        if "--error" in sys.argv:
-            filenames = json.load(open(ERROR_PATH))
-            for filename in filenames:
-                ## BLOCO DE PRICE
-                path = "https://veiculos.fipe.org.br/api/veiculos/ConsultarValorComTodosParametros"
-                codigoTabelaReferencia = filename.split("-")[0]
-                codigoMarca = filename.split("-")[1]
-                codigoModelo = filename.split("-")[2]
-                codigoTipoCombustivel = filename.split("-")[3]
-                anoModelo = filename.split("-")[4]
-                codigoTipoVeiculo = filename.split("-")[5].replace(".json", "")
-                data = {
-                    "codigoMarca": codigoMarca,
-                    "codigoModelo": codigoModelo,
-                    "codigoTabelaReferencia": codigoTabelaReferencia,
-                    "codigoTipoCombustivel": codigoTipoCombustivel,
-                    "codigoTipoVeiculo": codigoTipoVeiculo,
-                    "anoModelo": anoModelo,
-                    "tipoConsulta": "tradicional",
-                }
-                """
-                ## BLOCO DE MODELO
-                path = "https://veiculos.fipe.org.br/api/veiculos/ConsultarAnoModelo"
-                codigoTabelaReferencia = filename.split("-")[0]
-                codigoMarca = filename.split("-")[1]
-                codigoModelo = filename.split("-")[2]
-                codigoTipoVeiculo = filename.split("-")[3].replace(".json", "")
-                data = {
-                    "codigoMarca": codigoMarca,
-                    "codigoModelo": codigoModelo,
-                    "codigoTabelaReferencia": codigoTabelaReferencia,
-                    "codigoTipoVeiculo": codigoTipoVeiculo,
-                }
-                """
-                result = requestData(path=path, data=data)
-                saveData(folder=PRICE_PATH, file=filename, data=result)
-        else:
-            ## LÊ LISTA DE MESES
-            # processMeses()
-            ## LÊ LISTA DE MESES -> GERA MARCAS
-            # processMarcas()
-            ## LÊ MARCAS -> GERA MODELOS
-            # startThread(
-            #     path=MARCA_PATH,
-            #     FOLDERPATH=MODELO_PATH,
-            #     instance=3,
-            #     target=processThread,
-            # )
-            ## LÊ MODELOS -> GERA VARIACOES
-            # startThread(
-            #     path=MODELO_PATH,
-            #     FOLDERPATH=VARIACAO_PATH,
-            #     instance=300,
-            #     target=processThread,
-            # )
-            ## LÊ VARIACAO -> GERA PRECO
-            startThread(
-                path=VARIACAO_PATH,
-                FOLDERPATH=PRICE_PATH,
-                instance=300,
-                target=processThread,
-            )
-            # Le Erros de Price
-            # startThread(
-            #     path=ERROR_PATH,
-            #     FOLDERPATH=PRICE_PATH,
-            #     instance=1,
-            #     target=processErro,
-            # )
+        # if "--error" in sys.argv:
+        #     filenames = json.load(open(ERROR_PATH))
+        #     for filename in filenames:
+        #         ## BLOCO DE PRICE
+        #         path = "https://veiculos.fipe.org.br/api/veiculos/ConsultarValorComTodosParametros"
+        #         codigoTabelaReferencia = filename.split("-")[0]
+        #         codigoMarca = filename.split("-")[1]
+        #         codigoModelo = filename.split("-")[2]
+        #         codigoTipoCombustivel = filename.split("-")[3]
+        #         anoModelo = filename.split("-")[4]
+        #         codigoTipoVeiculo = filename.split("-")[5].replace(".json", "")
+        #         data = {
+        #             "codigoMarca": codigoMarca,
+        #             "codigoModelo": codigoModelo,
+        #             "codigoTabelaReferencia": codigoTabelaReferencia,
+        #             "codigoTipoCombustivel": codigoTipoCombustivel,
+        #             "codigoTipoVeiculo": codigoTipoVeiculo,
+        #             "anoModelo": anoModelo,
+        #             "tipoConsulta": "tradicional",
+        #         }
+        #         """
+        #         ## BLOCO DE MODELO
+        #         path = "https://veiculos.fipe.org.br/api/veiculos/ConsultarAnoModelo"
+        #         codigoTabelaReferencia = filename.split("-")[0]
+        #         codigoMarca = filename.split("-")[1]
+        #         codigoModelo = filename.split("-")[2]
+        #         codigoTipoVeiculo = filename.split("-")[3].replace(".json", "")
+        #         data = {
+        #             "codigoMarca": codigoMarca,
+        #             "codigoModelo": codigoModelo,
+        #             "codigoTabelaReferencia": codigoTabelaReferencia,
+        #             "codigoTipoVeiculo": codigoTipoVeiculo,
+        #         }
+        #         """
+        #         result = requestData(path=path, data=data)
+        #         saveData(folder=PRICE_PATH, file=filename, data=result)
+        # else:
+        ## LÊ LISTA DE MESES
+        processMeses()
+        ## LÊ LISTA DE MESES -> GERA MARCAS
+        # processMarcas()
+        ## LÊ MARCAS -> GERA MODELOS
+        # startThread(
+        #     path=MARCA_PATH,
+        #     FOLDERPATH=MODELO_PATH,
+        #     instance=100,
+        #     target=processThread,
+        # )
+        ## LÊ MODELOS -> GERA VARIACOES
+        # startThread(
+        #     path=MODELO_PATH,
+        #     FOLDERPATH=VARIACAO_PATH,
+        #     instance=100,
+        #     target=processThread,
+        # )
+        ## LÊ VARIACAO -> GERA PRECO
+        # startThread(
+        #     path=VARIACAO_PATH,
+        #     FOLDERPATH=PRICE_PATH,
+        #     instance=300,
+        #     target=processThread,
+        # )
+        # Le Erros de Price
+        # startThread(
+        #     path=ERROR_PATH,
+        #     FOLDERPATH=PRICE_PATH,
+        #     instance=1,
+        #     target=processErro,
+        # )
     except Exception as e:
         logging.error(e)
