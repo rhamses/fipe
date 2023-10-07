@@ -91,7 +91,7 @@
               {{ searchModel }} -
               {{ variationYear }}
             </h3>
-            <img :src="'/logos/' + marcaModel + '.webp'" alt="" class="mx-auto h-20">
+            <img :src="'/logos/' + marcaModel + '.webp'" alt="" class="mx-auto h-36">
           </div>
           <div id="currentPrice" class="basis-full">
             <Card :item="priceHighlight" :variation="percentageModel" :monthly="percentageMonth" cssClass="mx-auto" />
