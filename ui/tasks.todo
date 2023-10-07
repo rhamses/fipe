@@ -6,5 +6,19 @@
 ☐ criar página de dados / dashboard publica
 ☐ fechar o ip da chave só pro netlify
 ☐ anunciar no google
-☐ bug de nao atualizar o valor highlight
+✔ bug de nao atualizar o valor highlight @done (10/4/2023, 9:47:07 AM)
 ✔ acertar bug da valorização ou não @done (8/28/2023, 10:23:33 PM)
+☐ criar onboarding de novos usuarios para pegar a chave
+☐ integrar com o Data API para cadastro de usuarios
+☐ criar os endpoints usando cloudflare workers
+☐ Lista de marcas faltantes
+  baby
+  buggy
+  bugre
+  fibravan
+  hitech-electric
+  jinbei
+  kia-motors
+  kimco
+  regal-partor
+  regal-rartor

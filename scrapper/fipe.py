@@ -13,13 +13,13 @@ from bson import ObjectId
 
 logFile = "output-index-" + str(datetime.now()) + ".log"
 logging.basicConfig(filename=logFile, encoding="utf-8")
-indexesPath = "data/indexes/"
+INDEXES_PATH = "data/indexes/"
 MARCA_PATH = "data/indexes/marcas/"
 MODELO_PATH = "data/indexes/modelos/"
 VARIACAO_PATH = "data/indexes/variacao/"
 PRICE_PATH = "data/indexes/price/"
 ERROR_PATH = "data/preco-erro.json"
-MONTH_REFERENCE = [293, 294, 295, 296, 297, 298, 299, 300, 301]
+MONTH_REFERENCE = [302]
 """
 Considerar um array principal [1,2,3], onde cada número é o código do veículos
   1 - carros
@@ -61,7 +61,7 @@ def checkFolder(folder):
         currentFolder += "/"
 
 
-def requestData(path, context, newFilename, data=None):
+def requestData(path, context=None, newFilename=None, data=None):
     try:
         result = requests.post(path, data=data)
         body = result.json()
@@ -70,7 +70,7 @@ def requestData(path, context, newFilename, data=None):
         else:
             raise Exception
     except Exception as e:
-        f = open(indexesPath + context + "-error/" + newFilename, "w")
+        f = open(INDEXES_PATH + context + "-error/" + newFilename, "w")
         f.write("")
         f.close()
         logging.warning(path)
@@ -123,11 +123,13 @@ def uploadToGoogle(folder, data, fileName="index.json"):
 def processMeses():
     try:
         # write anos onto folder
-        fileName = "meses.json"
+        filename = "meses.json"
         result = requestData(
-            path="https://veiculos.fipe.org.br/api/veiculos/ConsultarTabelaDeReferencia"
+            path="https://veiculos.fipe.org.br/api/veiculos/ConsultarTabelaDeReferencia",
+            context="meses",
+            newFilename="meses.json",
         )
-        saveData(folder=indexesPath, file=fileName, data=result)
+        saveData(folder=INDEXES_PATH, file=filename, data=result)
     except Exception as e:
         logging.error("(processMeses) - " + str(e))
 
@@ -136,7 +138,7 @@ def processMarcas():
     try:
         vehicles = [1, 2, 3]
         for vehicleIndex in vehicles:
-            with open(indexesPath + "meses.json") as meses:
+            with open(INDEXES_PATH + "meses.json") as meses:
                 meses = json.load(meses)
                 for mes in meses:
                     codigoTabelaReferencia = mes["Codigo"]
@@ -225,11 +227,11 @@ def processThread(filenames, dirpath, FOLDERPATH, error):
                         else:
                             break
                         # logging.warning("->" + FOLDERPATH + newFilename)
-                        # print("aaa", indexesPath + context + "-error/" + newFilename)
+                        # print("aaa", INDEXES_PATH + context + "-error/" + newFilename)
                         if (
                             os.path.exists(FOLDERPATH + newFilename) == False
                             and os.path.exists(
-                                indexesPath + context + "-error/" + newFilename
+                                INDEXES_PATH + context + "-error/" + newFilename
                             )
                             == False
                         ):
@@ -334,7 +336,7 @@ if __name__ == "__main__":
         #         saveData(folder=PRICE_PATH, file=filename, data=result)
         # else:
         ## LÊ LISTA DE MESES
-        processMeses()
+        # processMeses()
         ## LÊ LISTA DE MESES -> GERA MARCAS
         # processMarcas()
         ## LÊ MARCAS -> GERA MODELOS
@@ -352,12 +354,12 @@ if __name__ == "__main__":
         #     target=processThread,
         # )
         ## LÊ VARIACAO -> GERA PRECO
-        # startThread(
-        #     path=VARIACAO_PATH,
-        #     FOLDERPATH=PRICE_PATH,
-        #     instance=300,
-        #     target=processThread,
-        # )
+        startThread(
+            path=VARIACAO_PATH,
+            FOLDERPATH=PRICE_PATH,
+            instance=300,
+            target=processThread,
+        )
         # Le Erros de Price
         # startThread(
         #     path=ERROR_PATH,

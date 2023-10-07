@@ -47,7 +47,7 @@ PROCESSED_FILE = "data/indexes/price-processed/"
 MONGO_CONNECTION_STRING = "mongodb+srv://ambiente1:HzRYel5sSP1av7SC@cluster0.zeadg.gcp.mongodb.net/?retryWrites=true&w=majority"
 MONGO_DB = "fipe"
 # MONTH_REFERENCE = [293, 294, 295, 296, 297, 298, 299, 300, 301]
-MONTH_REFERENCE = [299]
+MONTH_REFERENCE = [302]
 
 
 def moveFile(filename):
