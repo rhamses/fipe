@@ -10,4 +10,8 @@ scrapper/__pycache__
 indexes/*
 /public/
 /BrandLogos
+/CarBrand
+/brand-generator/node_modules
+/brand-generator/transformed
 /brand-generator
+
