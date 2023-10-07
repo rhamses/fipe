@@ -10,3 +10,4 @@ scrapper/__pycache__
 indexes/*
 /public/
 /BrandLogos
+/brand-generator
