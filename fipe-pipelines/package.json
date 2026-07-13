@@ -1,0 +1,20 @@
+{
+  "name": "late-darkness-7931",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "deploy": "wrangler deploy",
+    "dev": "wrangler dev --test-scheduled",
+    "start": "wrangler dev --test-scheduled",
+    "cf-typegen": "wrangler types",
+		"test": "vitest"
+  },
+  "devDependencies": {
+    "@cloudflare/vitest-pool-workers": "^0.18.4",
+    "@types/node": "^26.1.1",
+    "typescript": "^5.5.2",
+    "vitest": "^4.1.10",
+    "wrangler": "^4.110.0"
+  }
+}

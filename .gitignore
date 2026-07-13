@@ -15,3 +15,10 @@ indexes/*
 /brand-generator/transformed
 /brand-generator
 
+
+# fipe-pipelines (Cloudflare Worker)
+fipe-pipelines/node_modules/
+fipe-pipelines/.wrangler/
+fipe-pipelines/.dev.vars
+fipe-pipelines/.env
+fipe-pipelines/.env.*

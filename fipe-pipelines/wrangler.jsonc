@@ -1,0 +1,46 @@
+/**
+ * For more details on how to configure Wrangler, refer to:
+ * https://developers.cloudflare.com/workers/wrangler/configuration/
+ */
+{
+	"$schema": "node_modules/wrangler/config-schema.json",
+	"name": "fipe-crawler",
+	"main": "src/index.ts",
+	"compatibility_date": "2026-07-13",
+	"observability": {
+		"enabled": true
+	},
+	"triggers": {
+		"crons": [
+			// Noon Brasília (UTC-3) on the 1st of each month — starts/rechecks a new FIPE month.
+			"0 15 1 * *",
+			// Continues checkpointed crawl in small batches until the month is done.
+			"*/5 * * * *"
+		]
+	},
+	"upload_source_maps": true,
+	"compatibility_flags": [
+		"nodejs_compat",
+		"global_fetch_strictly_public"
+	],
+	"pipelines": [
+		{
+			"stream": "a14abadd4f1b4a75a2b153342d7ab456",
+			"pipeline": "a14abadd4f1b4a75a2b153342d7ab456",
+			"binding": "STREAM",
+		}
+	],
+	"r2_buckets": [
+		{
+			"bucket_name": "fipe-pipeline-bkt",
+			"binding": "bucket"
+		}
+	],
+	"kv_namespaces": [
+		{
+			"binding": "FIPE_CHECKPOINT",
+			"id": "663697bbebd8484e8e994edb49b5b44a",
+			"preview_id": "5c102cf55f774e9392c0f282f1187d56"
+		}
+	]
+}
