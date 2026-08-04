@@ -1,0 +1,1084 @@
+---
+import Icon from '../components/Icon.astro';
+import PriceChart from '../components/PriceChart.astro';
+import Layout from '../layouts/Layout.astro';
+import {
+	DEPRECIATION_LABELS,
+	RELATIVE_LABELS,
+	loadStatsPageData,
+} from '../lib/stats-data';
+
+export const prerender = false;
+
+const stats = await loadStatsPageData();
+const {
+	error,
+	recentTabLabel,
+	sinceTabLabel,
+	recentVehicleStats,
+	sinceVehicleStats,
+	brandsByYearLabels,
+	brandsByYearValues,
+	modelsVariationsLabels,
+	modelsVariationsDatasets,
+	priceRangeByVehicle,
+	depreciationDatasets,
+	relativeDepreciationDatasets,
+	medianLabels,
+	medianDatasets,
+	meanDatasets,
+	momLabels,
+	momDatasets,
+	topBrandsByVehicle,
+	topBrandModelsByVehicle,
+	zeroKmLabels,
+	zeroKmDatasets,
+	fleetAgeLabels,
+	fleetAgeDatasets,
+	concentration,
+	churnLabels,
+	churnDatasets,
+	inflationLabels,
+	inflationDatasets,
+	depByBandDatasets,
+	depByBandRelativeDatasets,
+	extremesMax,
+	extremesMin,
+	longevityByVehicle,
+	auditTrail,
+} = stats;
+
+const formatNumber = (value: number) => new Intl.NumberFormat('pt-BR').format(value);
+const formatCurrency = (value: number) =>
+	new Intl.NumberFormat('pt-BR', {
+		style: 'currency',
+		currency: 'BRL',
+		maximumFractionDigits: 0,
+	}).format(value);
+---
+
+<Layout title="Stats — FIPE LP">
+	<main class="page">
+		<header class="hero">
+			<h1>Stats</h1>
+			<p class="lede">Métricas e insights do pipeline FIPE no R2 Data Catalog.</p>
+		</header>
+
+		{
+			error ? (
+				<section class="panel error" role="alert">
+					<div class="demo-head">
+						<Icon name="lucide:triangle-alert" />
+						<h2>Erro na consulta</h2>
+					</div>
+					<p>{error}</p>
+				</section>
+			) : (
+				<>
+					<section class="tabs-panel" aria-label="Recortes de tempo" x-data="{ tab: 'recent' }">
+						<div class="tabs" role="tablist">
+							<button
+								type="button"
+								role="tab"
+								class="tab"
+								:class="tab === 'recent' && 'tab--active'"
+								:aria-selected="tab === 'recent'"
+								@click="tab = 'recent'"
+							>
+								{recentTabLabel}
+							</button>
+							<button
+								type="button"
+								role="tab"
+								class="tab"
+								:class="tab === 'since' && 'tab--active'"
+								:aria-selected="tab === 'since'"
+								@click="tab = 'since'"
+							>
+								{sinceTabLabel}
+							</button>
+						</div>
+
+						<div class="tab-body">
+							<div x-show="tab === 'recent'" x-cloak>
+								{
+									recentVehicleStats.map((vehicle) => (
+										<section class="vehicle-block" aria-label={vehicle.label}>
+											<h2 class="vehicle-title">{vehicle.label}</h2>
+											<div class="metrics metrics--vehicle">
+												<article class="metric">
+													<span class="metric-label">Marcas</span>
+													<strong>{formatNumber(vehicle.marcas)}</strong>
+												</article>
+												<article class="metric">
+													<span class="metric-label">Modelos</span>
+													<strong>{formatNumber(vehicle.modelos)}</strong>
+												</article>
+												<article class="metric">
+													<span class="metric-label">Preços</span>
+													<strong>{formatNumber(vehicle.precos)}</strong>
+												</article>
+												<article class="metric">
+													<span class="metric-label">Maior preço registrado</span>
+													<strong class="price-value">
+														{vehicle.maiorPreco > 0 ? formatCurrency(vehicle.maiorPreco) : '—'}
+													</strong>
+												</article>
+												<article class="metric">
+													<span class="metric-label">Menor preço registrado</span>
+													<strong class="price-value">
+														{vehicle.menorPreco > 0 ? formatCurrency(vehicle.menorPreco) : '—'}
+													</strong>
+												</article>
+											</div>
+										</section>
+									))
+								}
+							</div>
+
+							<div x-show="tab === 'since'" x-cloak>
+								{
+									sinceVehicleStats.map((vehicle) => (
+										<section class="vehicle-block" aria-label={vehicle.label}>
+											<h2 class="vehicle-title">{vehicle.label}</h2>
+											<div class="metrics metrics--vehicle">
+												<article class="metric">
+													<span class="metric-label">Marcas</span>
+													<strong>{formatNumber(vehicle.marcas)}</strong>
+												</article>
+												<article class="metric">
+													<span class="metric-label">Modelos</span>
+													<strong>{formatNumber(vehicle.modelos)}</strong>
+												</article>
+												<article class="metric">
+													<span class="metric-label">Preços</span>
+													<strong>{formatNumber(vehicle.precos)}</strong>
+												</article>
+												<article class="metric">
+													<span class="metric-label">Maior preço registrado</span>
+													<strong class="price-value">
+														{vehicle.maiorPreco > 0 ? formatCurrency(vehicle.maiorPreco) : '—'}
+													</strong>
+												</article>
+												<article class="metric">
+													<span class="metric-label">Menor preço registrado</span>
+													<strong class="price-value">
+														{vehicle.menorPreco > 0 ? formatCurrency(vehicle.menorPreco) : '—'}
+													</strong>
+												</article>
+											</div>
+										</section>
+									))
+								}
+							</div>
+						</div>
+					</section>
+
+					<div class="cards-row">
+						{
+							(extremesMax.length > 0 || extremesMin.length > 0) && (
+								<section class="panel" aria-label="Extremos do mês">
+									<div class="demo-head">
+										<Icon name="lucide:gem" />
+										<h2>Mais caros e mais baratos do mês</h2>
+									</div>
+									<div class="extremes-grid">
+										<div>
+											<h3 class="subhead">Mais caros</h3>
+											<ul class="extreme-list">
+												{extremesMax.map((item) => (
+													<li>
+														<span class="extreme-type">{item.label}</span>
+														<strong>
+															{item.brand} {item.model}
+														</strong>
+														<span class="extreme-meta">
+															{item.yearModel} · {item.fipeCode} ·{' '}
+															{formatCurrency(item.price)}
+														</span>
+													</li>
+												))}
+											</ul>
+										</div>
+										<div>
+											<h3 class="subhead">Mais baratos</h3>
+											<ul class="extreme-list">
+												{extremesMin.map((item) => (
+													<li>
+														<span class="extreme-type">{item.label}</span>
+														<strong>
+															{item.brand} {item.model}
+														</strong>
+														<span class="extreme-meta">
+															{item.yearModel} · {item.fipeCode} ·{' '}
+															{formatCurrency(item.price)}
+														</span>
+													</li>
+												))}
+											</ul>
+										</div>
+									</div>
+								</section>
+							)
+						}
+
+						{
+							concentration.length > 0 && (
+								<section class="panel" aria-label="Concentração de mercado">
+									<div class="demo-head">
+										<Icon name="lucide:pie-chart" />
+										<h2>Concentração de mercado (mês recente)</h2>
+									</div>
+									<p class="pie-note">
+										Share das 5 maiores marcas por códigos FIPE.
+									</p>
+									<div class="metrics metrics--vehicle metrics--in-card">
+										{concentration.map((item) => (
+											<article class="metric">
+												<span class="metric-label">{item.label}</span>
+												<strong class="price-value">{item.top5Share}% top-5</strong>
+												<span class="metric-foot">
+													{item.topBrand} {item.topBrandShare}%
+												</span>
+											</article>
+										))}
+									</div>
+								</section>
+							)
+						}
+					</div>
+
+					{
+						medianLabels.length > 0 && (
+							<section class="panel chart-panel" aria-label="Preço mediano por ano">
+								<div class="demo-head">
+									<Icon name="lucide:chart-line" />
+									<h2>Preço mediano por ano</h2>
+								</div>
+								<p class="pie-note">Mediana dos preços listados por ano.</p>
+								<PriceChart
+									id="stats-median-by-year"
+									type="line"
+									label="Preço mediano"
+									labels={medianLabels}
+									datasets={medianDatasets}
+								/>
+							</section>
+						)
+					}
+
+					{
+						medianLabels.length > 0 && (
+							<section class="panel chart-panel" aria-label="Preço médio por ano">
+								<div class="demo-head">
+									<Icon name="lucide:chart-line" />
+									<h2>Preço médio por ano</h2>
+								</div>
+								<PriceChart
+									id="stats-mean-by-year"
+									type="line"
+									label="Preço médio"
+									labels={medianLabels}
+									datasets={meanDatasets}
+								/>
+							</section>
+						)
+					}
+
+					{
+						inflationLabels.length > 0 && (
+							<section class="panel chart-panel" aria-label="Inflação FIPE sintética">
+								<div class="demo-head">
+									<Icon name="lucide:activity" />
+									<h2>Inflação FIPE sintética (painel fixo)</h2>
+								</div>
+								<p class="pie-note">
+									Códigos presentes desde o 1º ano de cada tipo de veículo até o mês mais
+									recente; índice 100 no primeiro ano de cada série.
+								</p>
+								<PriceChart
+									id="stats-inflation-index"
+									type="line"
+									label="Índice FIPE"
+									labels={inflationLabels}
+									datasets={inflationDatasets}
+								/>
+							</section>
+						)
+					}
+
+					{
+						momLabels.length > 0 && (
+							<section class="panel chart-panel" aria-label="Variação mês a mês">
+								<div class="demo-head">
+									<Icon name="lucide:percent" />
+									<h2>Variação mês a mês do catálogo</h2>
+								</div>
+								<p class="pie-note">Últimos 12 meses · variação % vs. mês anterior.</p>
+								<PriceChart
+									id="stats-mom-catalog"
+									type="line"
+									label="MoM %"
+									labels={momLabels}
+									datasets={momDatasets}
+								/>
+							</section>
+						)
+					}
+
+					{
+						topBrandsByVehicle.some((item) => item.values.length > 0) && (
+							<section class="panel pie-section" aria-label="Top marcas">
+								<div class="demo-head">
+									<Icon name="lucide:trophy" />
+									<h2>Top marcas por códigos FIPE</h2>
+								</div>
+								<p class="pie-note">Mês mais recente · top 10 por tipo de veículo.</p>
+								<div class="pie-grid">
+									{topBrandsByVehicle.map((vehicle) =>
+										vehicle.values.length > 0 ? (
+											<article class="pie-card chart-panel">
+												<h3>{vehicle.label}</h3>
+												<PriceChart
+													id={`stats-top-brands-${vehicle.id}`}
+													type="bar"
+													horizontal
+													colorPerBar
+													label={`Top marcas — ${vehicle.label}`}
+													labels={vehicle.labels}
+													values={vehicle.values}
+												/>
+											</article>
+										) : null,
+									)}
+								</div>
+							</section>
+						)
+					}
+
+					{
+						topBrandModelsByVehicle.some((item) => item.labels.length > 0) && (
+							<section class="panel pie-section" aria-label="Variações por modelos top marcas">
+								<div class="demo-head">
+									<Icon name="lucide:boxes" />
+									<h2>Variações × modelos — top 10 marcas</h2>
+								</div>
+								<p class="pie-note">
+									Mesmas marcas do ranking acima · ordenado por variações (maior → menor)
+									· mês mais recente.
+								</p>
+								<div class="pie-grid">
+									{topBrandModelsByVehicle.map((vehicle) =>
+										vehicle.labels.length > 0 ? (
+											<article class="pie-card chart-panel">
+												<h3>{vehicle.label}</h3>
+												<PriceChart
+													id={`stats-top-brand-models-${vehicle.id}`}
+													type="bar"
+													horizontal
+													label={`Modelos e variações — ${vehicle.label}`}
+													labels={vehicle.labels}
+													datasets={vehicle.datasets}
+												/>
+											</article>
+										) : null,
+									)}
+								</div>
+							</section>
+						)
+					}
+
+					{
+						zeroKmLabels.length > 0 && (
+							<section class="panel chart-panel" aria-label="Share 0km">
+								<div class="demo-head">
+									<Icon name="lucide:sparkles" />
+									<h2>Share de 0km vs. usados</h2>
+								</div>
+								<p class="pie-note">% de registros com year_model = 32000 por ano.</p>
+								<PriceChart
+									id="stats-zero-km-share"
+									type="line"
+									label="% 0km"
+									labels={zeroKmLabels}
+									datasets={zeroKmDatasets}
+								/>
+							</section>
+						)
+					}
+
+					{
+						fleetAgeLabels.length > 0 && (
+							<section class="panel chart-panel" aria-label="Idade média da frota">
+								<div class="demo-head">
+									<Icon name="lucide:hourglass" />
+									<h2>Idade média da frota listada</h2>
+								</div>
+								<p class="pie-note">
+									Ano da tabela − year_model (exclui 0km). Em anos.
+								</p>
+								<PriceChart
+									id="stats-fleet-age"
+									type="line"
+									label="Idade média"
+									labels={fleetAgeLabels}
+									datasets={fleetAgeDatasets}
+								/>
+							</section>
+						)
+					}
+
+					{
+						churnLabels.length > 0 && (
+							<section class="panel chart-panel" aria-label="Entradas anuais de modelos">
+								<div class="demo-head">
+									<Icon name="lucide:log-in" />
+									<h2>Entradas de modelos por ano</h2>
+								</div>
+								<p class="pie-note">
+									Modelos presentes no ano e ausentes no ano anterior. Use scroll/pinça
+									para zoom.
+								</p>
+								<PriceChart
+									id="stats-yearly-churn"
+									type="bar"
+									zoom
+									label="Entradas"
+									labels={churnLabels}
+									datasets={churnDatasets}
+								/>
+							</section>
+						)
+					}
+
+					{
+						brandsByYearLabels.length > 0 && (
+							<section class="panel chart-panel" aria-label="Marcas por ano">
+								<div class="demo-head">
+									<Icon name="lucide:chart-line" />
+									<h2>Marcas por ano</h2>
+								</div>
+								<PriceChart
+									id="stats-brands-by-year"
+									type="line"
+									label="Marcas"
+									labels={brandsByYearLabels}
+									values={brandsByYearValues}
+								/>
+							</section>
+						)
+					}
+
+					{
+						modelsVariationsLabels.length > 0 && (
+							<section class="panel chart-panel" aria-label="Modelos e variações por ano">
+								<div class="demo-head">
+									<Icon name="lucide:chart-column" />
+									<h2>Modelos × variações por ano</h2>
+								</div>
+								<PriceChart
+									id="stats-models-variations-by-year"
+									type="bar"
+									label="Modelos e variações"
+									labels={modelsVariationsLabels}
+									datasets={modelsVariationsDatasets}
+								/>
+							</section>
+						)
+					}
+
+					{
+						priceRangeByVehicle.length > 0 && (
+							<section class="panel pie-section" aria-label="Distribuição por faixa de preço">
+								<div class="demo-head">
+									<Icon name="lucide:chart-pie" />
+									<h2>Distribuição por faixa de preço</h2>
+								</div>
+								<p class="pie-note">
+									Faixas: 20–50k · 50–80k · 80–120k · 120–200k · 200–300k · 300k+
+								</p>
+								<div class="pie-grid">
+									{priceRangeByVehicle.map((vehicle) => (
+										<article class="pie-card">
+											<h3>{vehicle.label}</h3>
+											<PriceChart
+												id={`stats-price-range-${vehicle.id}`}
+												type="pie"
+												label={`Faixas de preço — ${vehicle.label}`}
+												labels={vehicle.labels}
+												values={vehicle.values}
+											/>
+										</article>
+									))}
+								</div>
+							</section>
+						)
+					}
+
+					{
+						longevityByVehicle.length > 0 && (
+							<section class="panel pie-section" aria-label="Longevidade no catálogo">
+								<div class="demo-head">
+									<Icon name="lucide:calendar-range" />
+									<h2>Longevidade no catálogo</h2>
+								</div>
+								<p class="pie-note">
+									Meses distintos em que cada código FIPE aparece (0–1a … 10a+).
+								</p>
+								<div class="pie-grid">
+									{longevityByVehicle.map((vehicle) => (
+										<article class="pie-card">
+											<h3>{vehicle.label}</h3>
+											<PriceChart
+												id={`stats-longevity-${vehicle.id}`}
+												type="pie"
+												label={`Longevidade — ${vehicle.label}`}
+												labels={vehicle.labels}
+												values={vehicle.values}
+											/>
+										</article>
+									))}
+								</div>
+							</section>
+						)
+					}
+
+					{
+						depreciationDatasets.length > 0 && (
+							<section class="panel chart-panel" aria-label="Curva de preço 0km a 3 anos">
+								<div class="demo-head">
+									<Icon name="lucide:trending-down" />
+									<h2>Curva de preço: 0km → 3 anos</h2>
+								</div>
+								<p class="pie-note">
+									% médio do preço 0km retido. Para cada modelo, usa o primeiro mês
+									como 0km e compara com o mesmo código FIPE 1, 2 e 3 anos depois.
+								</p>
+								<PriceChart
+									id="stats-depreciation-curve"
+									type="line"
+									label="Retenção de preço"
+									labels={[...DEPRECIATION_LABELS]}
+									datasets={depreciationDatasets}
+								/>
+							</section>
+						)
+					}
+
+					{
+						depByBandDatasets.length > 0 && (
+							<section class="panel chart-panel" aria-label="Depreciação por faixa 0 a 3 anos">
+								<div class="demo-head">
+									<Icon name="lucide:layers" />
+									<h2>Depreciação por faixa de preço (carros) · 0km → 3 anos</h2>
+								</div>
+								<p class="pie-note">
+									Retenção 0km→3 anos agrupada pelo preço 0km de lançamento.
+								</p>
+								<PriceChart
+									id="stats-dep-by-band"
+									type="line"
+									label="Retenção por faixa"
+									labels={[...DEPRECIATION_LABELS]}
+									datasets={depByBandDatasets}
+								/>
+							</section>
+						)
+					}
+
+					{
+						relativeDepreciationDatasets.length > 0 && (
+							<section class="panel chart-panel" aria-label="Curva de preço 3 a 10 anos">
+								<div class="demo-head">
+									<Icon name="lucide:trending-down" />
+									<h2>Curva de preço: 3 → 10 anos</h2>
+								</div>
+								<p class="pie-note">
+									% relativa ao preço aos 3 anos (base 100%). Legenda mostra só a
+									variação de 3 para 10 anos.
+								</p>
+								<PriceChart
+									id="stats-depreciation-curve-3-10"
+									type="line"
+									label="Retenção relativa"
+									labels={[...RELATIVE_LABELS]}
+									datasets={relativeDepreciationDatasets}
+								/>
+							</section>
+						)
+					}
+
+					{
+						depByBandRelativeDatasets.length > 0 && (
+							<section class="panel chart-panel" aria-label="Depreciação por faixa 3 a 10 anos">
+								<div class="demo-head">
+									<Icon name="lucide:layers" />
+									<h2>Depreciação por faixa de preço (carros) · 3 → 10 anos</h2>
+								</div>
+								<p class="pie-note">
+									% relativa ao preço aos 3 anos (base 100%), por faixa do preço 0km
+									de lançamento.
+								</p>
+								<PriceChart
+									id="stats-dep-by-band-3-10"
+									type="line"
+									label="Retenção relativa por faixa"
+									labels={[...RELATIVE_LABELS]}
+									datasets={depByBandRelativeDatasets}
+								/>
+							</section>
+						)
+					}
+
+					{
+						auditTrail.length > 0 && (
+							<section
+								class="panel audit-panel"
+								aria-label="Auditoria técnica"
+								x-data="{ open: false }"
+							>
+								<button
+									type="button"
+									class="audit-toggle"
+									@click="open = !open"
+									:aria-expanded="open.toString()"
+								>
+									<span class="audit-toggle-label">
+										<Icon name="lucide:file-code-2" />
+										Auditoria técnica
+									</span>
+									<span class="audit-toggle-hint" x-text="open ? 'Ocultar' : 'Mostrar'"
+									></span>
+								</button>
+								<div class="audit-body" x-show="open" x-cloak>
+									<p class="pie-note">
+										SQL, HHI e detalhes de cálculo de cada bloco — para auditar o que a
+										página exibe.
+									</p>
+									{
+										auditTrail.map((entry) => (
+											<details class="audit-entry">
+												<summary>{entry.title}</summary>
+												<p class="audit-summary">{entry.summary}</p>
+												{entry.notes.length > 0 && (
+													<ul class="audit-notes">
+														{entry.notes.map((note) => (
+															<li>{note}</li>
+														))}
+													</ul>
+												)}
+												{entry.sql.map((query) => (
+													<pre class="audit-sql"><code>{query}</code></pre>
+												))}
+											</details>
+										))
+									}
+								</div>
+							</section>
+						)
+					}
+				</>
+			)
+		}
+	</main>
+</Layout>
+
+<style>
+	.page {
+		width: 100%;
+		max-width: 100%;
+		margin: 0;
+		padding: 2rem 1.25rem 3rem;
+		box-sizing: border-box;
+	}
+
+	.hero {
+		margin-bottom: 2rem;
+	}
+
+	h1 {
+		margin: 0 0 0.75rem;
+		font-size: clamp(1.75rem, 4vw, 2.5rem);
+		line-height: 1.15;
+		letter-spacing: -0.03em;
+	}
+
+	.lede {
+		margin: 0;
+		max-width: 40rem;
+		color: var(--muted);
+		font-size: 1.05rem;
+		line-height: 1.5;
+	}
+
+	.panel {
+		margin-top: 1rem;
+		padding: 1.25rem;
+		border: 1px solid var(--border);
+		border-radius: 12px;
+		background: var(--surface-raised);
+	}
+
+	.panel.error {
+		border-color: rgba(255, 100, 100, 0.35);
+	}
+
+	.demo-head {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+		margin-bottom: 0.85rem;
+		color: var(--accent-deep);
+	}
+
+	.demo-head :global(svg) {
+		width: 1.15rem;
+		height: 1.15rem;
+	}
+
+	.demo-head h2 {
+		margin: 0;
+		font-size: 1rem;
+		color: var(--text);
+	}
+
+	.subhead {
+		margin: 0 0 0.75rem;
+		font-size: 0.9rem;
+		font-weight: 600;
+		color: var(--accent-deep);
+	}
+
+	.tabs-panel {
+		margin-bottom: 1.5rem;
+		border: 1px solid var(--border);
+		border-radius: 14px;
+		background: var(--surface-raised);
+		overflow: hidden;
+	}
+
+	.tabs {
+		display: grid;
+		grid-template-columns: 1fr;
+		gap: 0;
+		border-bottom: 1px solid var(--border);
+		background: linear-gradient(90deg, rgba(132, 195, 68, 0.18), rgba(189, 215, 71, 0.22));
+	}
+
+	@media (min-width: 720px) {
+		.tabs {
+			grid-template-columns: repeat(2, minmax(0, 1fr));
+		}
+	}
+
+	.tab {
+		padding: 0.95rem 1.15rem;
+		border: 0;
+		border-radius: 0;
+		background: transparent;
+		color: var(--muted);
+		font-weight: 600;
+		text-align: left;
+		text-transform: capitalize;
+		cursor: pointer;
+	}
+
+	@media (min-width: 720px) {
+		.tab + .tab {
+			border-left: 1px solid var(--border);
+		}
+	}
+
+	.tab:hover {
+		color: var(--text);
+		background: rgba(132, 195, 68, 0.12);
+	}
+
+	.tab--active {
+		background: var(--surface-raised);
+		color: var(--text);
+		box-shadow: inset 0 -2px 0 var(--accent-deep);
+	}
+
+	.tab-body {
+		padding: 1.25rem;
+		background: var(--surface-raised);
+	}
+
+	.metrics {
+		display: grid;
+		gap: 1rem;
+	}
+
+	@media (min-width: 720px) {
+		.metrics--vehicle {
+			grid-template-columns: repeat(3, minmax(0, 1fr));
+		}
+	}
+
+	.vehicle-block {
+		margin-bottom: 1.25rem;
+	}
+
+	.vehicle-block:last-child {
+		margin-bottom: 0;
+	}
+
+	.vehicle-title {
+		margin: 0 0 0.75rem;
+		font-size: 1rem;
+		font-weight: 600;
+		color: var(--accent-deep);
+	}
+
+	.metric {
+		padding: 1.25rem;
+		border: 1px solid var(--border);
+		border-radius: 12px;
+		background: var(--surface);
+	}
+
+	.panel > .metrics .metric {
+		background: var(--surface);
+	}
+
+	.metric-label {
+		display: block;
+		margin-bottom: 0.35rem;
+		color: var(--muted);
+		font-size: 0.85rem;
+	}
+
+	.metric strong {
+		font-size: 1.75rem;
+		letter-spacing: -0.03em;
+	}
+
+	.metric strong.price-value {
+		font-size: 1.25rem;
+	}
+
+	.metric-foot {
+		display: block;
+		margin-top: 0.45rem;
+		color: var(--muted);
+		font-size: 0.8rem;
+		line-height: 1.35;
+	}
+
+	.cards-row {
+		display: grid;
+		gap: 1rem;
+		margin-top: 1rem;
+	}
+
+	@media (min-width: 900px) {
+		.cards-row {
+			grid-template-columns: repeat(2, minmax(0, 1fr));
+			align-items: stretch;
+		}
+	}
+
+	.cards-row > .panel {
+		margin-top: 0;
+		height: 100%;
+	}
+
+	.cards-row .metrics--in-card {
+		grid-template-columns: 1fr;
+	}
+
+	@media (min-width: 1200px) {
+		.cards-row .metrics--in-card {
+			grid-template-columns: repeat(3, minmax(0, 1fr));
+		}
+	}
+
+	.extremes-grid {
+		display: grid;
+		gap: 1.5rem;
+	}
+
+	@media (min-width: 1200px) {
+		.cards-row .extremes-grid {
+			grid-template-columns: 1fr 1fr;
+		}
+	}
+
+	.audit-panel {
+		margin-top: 2rem;
+	}
+
+	.audit-toggle {
+		display: flex;
+		width: 100%;
+		align-items: center;
+		justify-content: space-between;
+		gap: 1rem;
+		padding: 0;
+		border: 0;
+		background: transparent;
+		color: var(--text);
+		font-weight: 600;
+		text-align: left;
+	}
+
+	.audit-toggle-label {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.5rem;
+		color: var(--accent-deep);
+	}
+
+	.audit-toggle-label :global(svg) {
+		width: 1.15rem;
+		height: 1.15rem;
+	}
+
+	.audit-toggle-hint {
+		color: var(--muted);
+		font-size: 0.85rem;
+		font-weight: 500;
+	}
+
+	.audit-body {
+		margin-top: 1rem;
+		padding-top: 0.25rem;
+		border-top: 1px solid var(--border);
+	}
+
+	.audit-entry {
+		margin: 0.75rem 0;
+		padding: 0.85rem 1rem;
+		border: 1px solid var(--border);
+		border-radius: 10px;
+		background: var(--surface);
+	}
+
+	.audit-entry summary {
+		cursor: pointer;
+		font-weight: 600;
+		color: var(--text);
+	}
+
+	.audit-summary {
+		margin: 0.75rem 0 0.5rem;
+		color: var(--muted);
+		font-size: 0.9rem;
+		line-height: 1.45;
+	}
+
+	.audit-notes {
+		margin: 0.5rem 0 0.85rem;
+		padding-left: 1.1rem;
+		color: var(--muted);
+		font-size: 0.85rem;
+		line-height: 1.45;
+	}
+
+	.audit-sql {
+		margin: 0.5rem 0 0;
+		padding: 0.85rem 1rem;
+		overflow-x: auto;
+		border-radius: 8px;
+		background: #1f2420;
+		color: #e8efd8;
+		font-size: 0.75rem;
+		line-height: 1.45;
+		white-space: pre-wrap;
+	}
+
+	.audit-sql + .audit-sql {
+		margin-top: 0.65rem;
+	}
+
+	.extreme-list {
+		list-style: none;
+		margin: 0;
+		padding: 0;
+		display: grid;
+		gap: 0.85rem;
+	}
+
+	.extreme-list li {
+		display: grid;
+		gap: 0.2rem;
+	}
+
+	.extreme-type {
+		color: var(--accent-deep);
+		font-size: 0.8rem;
+		font-weight: 600;
+	}
+
+	.extreme-list strong {
+		font-size: 0.95rem;
+		font-weight: 600;
+		line-height: 1.3;
+	}
+
+	.extreme-meta {
+		color: var(--muted);
+		font-size: 0.8rem;
+	}
+
+	[x-cloak] {
+		display: none !important;
+	}
+
+	.chart-panel :global(.chart-wrap) {
+		height: 300px;
+	}
+
+	.pie-note {
+		margin: -0.25rem 0 1rem;
+		color: var(--muted);
+		font-size: 0.875rem;
+	}
+
+	.pie-section {
+		max-width: 100%;
+		overflow: hidden;
+	}
+
+	.pie-grid {
+		display: grid;
+		grid-template-columns: 1fr;
+		gap: 1.5rem;
+		max-width: 100%;
+		min-width: 0;
+	}
+
+	@media (min-width: 720px) {
+		.pie-grid {
+			grid-template-columns: repeat(3, minmax(0, 1fr));
+		}
+	}
+
+	.pie-card {
+		max-width: 100%;
+		min-width: 0;
+	}
+
+	.pie-card h3 {
+		margin: 0 0 0.75rem;
+		font-size: 0.95rem;
+		font-weight: 600;
+		color: var(--text);
+		text-align: center;
+	}
+
+	.pie-card :global(.chart-wrap) {
+		max-width: 100%;
+	}
+
+	.pie-card.chart-panel :global(.chart-wrap) {
+		height: 280px;
+	}
+
+	.panel > p {
+		margin: 0;
+		color: var(--muted);
+		line-height: 1.45;
+	}
+</style>

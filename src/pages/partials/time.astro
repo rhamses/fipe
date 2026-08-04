@@ -1,0 +1,20 @@
+---
+export const partial = true;
+export const prerender = false;
+
+const now = new Date().toLocaleString('pt-BR', {
+	dateStyle: 'short',
+	timeStyle: 'medium',
+});
+---
+
+<p class="partial-time">
+	Atualizado via HTMX: <strong>{now}</strong>
+</p>
+
+<style>
+	.partial-time {
+		margin: 0;
+		color: var(--ok);
+	}
+</style>
