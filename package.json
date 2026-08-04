@@ -1,20 +1,30 @@
 {
-  "name": "late-darkness-7931",
-  "version": "0.0.0",
-  "private": true,
+  "name": "fipe-lp",
   "type": "module",
-  "scripts": {
-    "deploy": "wrangler deploy",
-    "dev": "wrangler dev --test-scheduled",
-    "start": "wrangler dev --test-scheduled",
-    "cf-typegen": "wrangler types",
-		"test": "vitest"
+  "version": "0.0.1",
+  "engines": {
+    "node": ">=22.12.0"
   },
-  "devDependencies": {
-    "@cloudflare/vitest-pool-workers": "^0.18.4",
-    "@types/node": "^26.1.1",
-    "typescript": "^5.5.2",
-    "vitest": "^4.1.10",
-    "wrangler": "^4.110.0"
+	"scripts": {
+		"dev": "astro dev",
+		"build": "astro build",
+		"preview": "astro preview",
+		"deploy": "astro build && wrangler deploy",
+		"astro": "astro",
+		"generate-types": "wrangler types",
+		"seed:autocomplete": "node scripts/seed-autocomplete.mjs"
+	},
+  "dependencies": {
+    "@astrojs/alpinejs": "^1.0.0",
+    "@astrojs/cloudflare": "^14.1.7",
+    "@iconify-json/lucide": "^1.2.121",
+    "@types/alpinejs": "^3.13.11",
+    "alpinejs": "^3.15.12",
+    "astro": "^7.1.6",
+    "chart.js": "^4.5.1",
+    "chartjs-plugin-zoom": "^2.2.0",
+    "hammerjs": "^2.0.8",
+    "htmx.org": "^2.0.10",
+    "wrangler": "^4.118.0"
   }
 }

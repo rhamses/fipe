@@ -1,46 +1,25 @@
-/**
- * For more details on how to configure Wrangler, refer to:
- * https://developers.cloudflare.com/workers/wrangler/configuration/
- */
 {
-	"$schema": "node_modules/wrangler/config-schema.json",
-	"name": "fipe-crawler",
-	"main": "src/index.ts",
-	"compatibility_date": "2026-07-13",
+	"$schema": "./node_modules/wrangler/config-schema.json",
+	"compatibility_date": "2026-07-31",
+	"compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
+	"name": "fipe-lp",
+	"main": "@astrojs/cloudflare/entrypoints/server",
+	"assets": {
+		"directory": "./dist",
+		"binding": "ASSETS"
+	},
 	"observability": {
 		"enabled": true
 	},
-	"triggers": {
-		"crons": [
-			// Noon Brasília (UTC-3) on the 1st of each month — starts/rechecks a new FIPE month.
-			"0 15 1 * *",
-			// Continues checkpointed crawl in small batches until the month is done.
-			"*/5 * * * *"
-		]
+	"vars": {
+		"WAREHOUSE": "182788b23836a15ba32a69d616ba1db1_fipe-pipeline-bkt",
+		"CATALOG_URI": "https://catalog.cloudflarestorage.com/182788b23836a15ba32a69d616ba1db1/fipe-pipeline-bkt"
 	},
-	"upload_source_maps": true,
-	"compatibility_flags": [
-		"nodejs_compat",
-		"global_fetch_strictly_public"
-	],
-	"pipelines": [
-		{
-			"stream": "a14abadd4f1b4a75a2b153342d7ab456",
-			"pipeline": "a14abadd4f1b4a75a2b153342d7ab456",
-			"binding": "STREAM",
-		}
-	],
-	"r2_buckets": [
-		{
-			"bucket_name": "fipe-pipeline-bkt",
-			"binding": "bucket"
-		}
-	],
 	"kv_namespaces": [
 		{
-			"binding": "FIPE_CHECKPOINT",
-			"id": "663697bbebd8484e8e994edb49b5b44a",
-			"preview_id": "5c102cf55f774e9392c0f282f1187d56"
+			"binding": "CACHE",
+			"id": "00ca0b8ef45143f6aede0d5dd2d32e65",
+			"remote": true
 		}
 	]
 }
