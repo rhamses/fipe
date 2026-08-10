@@ -2,15 +2,15 @@
 import Icon from '../components/Icon.astro';
 import PriceChart from '../components/PriceChart.astro';
 import Layout from '../layouts/Layout.astro';
+import { resolveStatsPageData } from '../lib/stats-cache';
 import {
 	DEPRECIATION_LABELS,
 	RELATIVE_LABELS,
-	loadStatsPageData,
 } from '../lib/stats-data';
 
 export const prerender = false;
 
-const stats = await loadStatsPageData();
+const { stats, source: statsSource, bytes: statsBytes } = await resolveStatsPageData();
 const {
 	error,
 	recentTabLabel,
@@ -62,6 +62,12 @@ const formatCurrency = (value: number) =>
 		<header class="hero">
 			<h1>Stats</h1>
 			<p class="lede">Métricas e insights do pipeline FIPE no R2 Data Catalog.</p>
+			<p class="cache-meta">
+				{statsSource === 'cache' ? 'cache KV' : 'consulta SQL'}
+				{statsBytes != null
+					? ` · ${(statsBytes / 1024).toFixed(1)} KB`
+					: ''}
+			</p>
 		</header>
 
 		{
@@ -709,6 +715,13 @@ const formatCurrency = (value: number) =>
 		color: var(--muted);
 		font-size: 1.05rem;
 		line-height: 1.5;
+	}
+
+	.cache-meta {
+		margin: 0.5rem 0 0;
+		color: var(--muted);
+		font-size: 0.8rem;
+		opacity: 0.85;
 	}
 
 	.panel {
