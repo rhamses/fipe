@@ -1,7 +1,7 @@
 import type { APIRoute } from 'astro';
 import { resolveConsultaHistory } from '../../lib/consulta-cache';
 import { buildVehicleForecast } from '../../lib/vehicle-forecast';
-import { getVehiclePriceHistory } from '../../lib/vehicle-history';
+import { escapeSqlLiteral, getVehiclePriceHistory, loadFromZeroKmSeries } from '../../lib/vehicle-history';
 
 export const prerender = false;
 
@@ -25,6 +25,16 @@ export const GET: APIRoute = async ({ url }) => {
 
 		if (!history.forecast) {
 			history.forecast = await buildVehicleForecast(history, year);
+		}
+
+		if (!('fromZeroKm' in history)) {
+			history.fromZeroKm = await loadFromZeroKmSeries({
+				brand: escapeSqlLiteral(brand),
+				model: escapeSqlLiteral(model),
+				version: escapeSqlLiteral(version),
+				year,
+				vehicleId,
+			}).catch(() => null);
 		}
 
 		return new Response(JSON.stringify(history), {
