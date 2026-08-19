@@ -98,6 +98,11 @@ export const prerender = true;
 									data.forecast?.values || [],
 									data.vehicleId,
 								);
+								window.renderVehicleFromZeroChart?.(
+									this.$refs.fromZeroChart,
+									data.fromZeroKm?.points || [],
+									data.vehicleId,
+								);
 							});
 						});
 					} catch (error) {
@@ -114,6 +119,12 @@ export const prerender = true;
 						currency: 'BRL',
 						maximumFractionDigits: 0,
 					}).format(value);
+				},
+				formatPct(value) {
+					if (value == null) return '—';
+					const num = Number(value);
+					const sign = num > 0 ? '+' : '';
+					return `${sign}${num.toLocaleString('pt-BR', { maximumFractionDigits: 1 })}%`;
 				}
 			}"
 			@click.outside="open = false"
@@ -156,15 +167,29 @@ export const prerender = true;
 				</p>
 			</div>
 
-			<article class="value-card" x-show="selected" x-cloak aria-live="polite">
-				<p class="value-card-vehicle" x-text="history?.title || 'Valor —'"></p>
-				<p class="value-card-price" x-show="history?.latestPrice != null" x-cloak>
-					<strong x-text="formatCurrency(history?.latestPrice)"></strong>
-					<span x-text="history?.vehicleLabel"></span>
-				</p>
-				<p class="value-card-status" x-show="historyLoading" x-cloak>Carregando histórico…</p>
-				<p class="value-card-status value-card-status--error" x-show="historyError" x-cloak x-text="historyError"></p>
-			</article>
+			<div class="value-cards" x-show="selected" x-cloak>
+				<article class="value-card" aria-live="polite">
+					<p class="value-card-vehicle" x-text="history?.title || 'Valor —'"></p>
+					<p class="value-card-price" x-show="history?.latestPrice != null" x-cloak>
+						<strong x-text="formatCurrency(history?.latestPrice)"></strong>
+						<span x-text="history?.vehicleLabel"></span>
+					</p>
+					<p class="value-card-status" x-show="historyLoading" x-cloak>Carregando histórico…</p>
+					<p class="value-card-status value-card-status--error" x-show="historyError" x-cloak x-text="historyError"></p>
+				</article>
+				<article
+					class="value-card"
+					x-show="historyLoading || history?.fromZeroKm?.price0km != null"
+					aria-label="Valor Zero KM"
+				>
+					<p class="value-card-vehicle">Valor Zero KM</p>
+					<p class="value-card-price" x-show="history?.fromZeroKm?.price0km != null" x-cloak>
+						<strong x-text="formatCurrency(history?.fromZeroKm?.price0km)"></strong>
+						<span x-text="history?.fromZeroKm?.startLabel"></span>
+					</p>
+					<p class="value-card-status" x-show="historyLoading" x-cloak>Carregando valor 0km…</p>
+				</article>
+			</div>
 
 			<article
 				class="chart-card"
@@ -210,7 +235,7 @@ export const prerender = true;
 					<p class="forecast-meta">
 						<span
 							x-show="history?.forecast?.expectedChangePct != null"
-							x-text="((history.forecast?.expectedChangePct ?? 0) > 0 ? '+' : '') + (history.forecast?.expectedChangePct ?? 0) + '% em 12 meses'"
+							x-text="((history?.forecast?.expectedChangePct ?? 0) > 0 ? '+' : '') + (history?.forecast?.expectedChangePct ?? 0) + '% em 12 meses'"
 						></span>
 						<span x-text="history?.forecast?.note"></span>
 					</p>
@@ -224,6 +249,44 @@ export const prerender = true;
 					x-cloak
 				>
 					Não foi possível estimar a previsão para este veículo.
+				</p>
+			</article>
+
+			<article
+				class="chart-card"
+				x-show="selected && (historyLoading || historyError || history)"
+				x-cloak
+				aria-label="Do zero km até hoje"
+			>
+				<div class="demo-head">
+					<Icon name="lucide:timer" />
+					<h2>Do zero km até hoje</h2>
+				</div>
+				<p class="value-card-status" x-show="historyLoading" x-cloak>Carregando gráfico…</p>
+				<p class="value-card-status value-card-status--error" x-show="historyError" x-cloak x-text="historyError"></p>
+				<div
+					x-show="history && !historyLoading && !historyError && history.fromZeroKm && history.fromZeroKm.points?.length > 1"
+					x-cloak
+				>
+					<p class="forecast-meta">
+						<span
+							x-show="history?.fromZeroKm?.latestChangePct != null"
+							x-text="formatPct(history?.fromZeroKm?.latestChangePct) + ' desde o 0km'"
+						></span>
+						<span
+							x-text="'Preço 0km em ' + (history?.fromZeroKm?.startLabel || '—') + ': ' + formatCurrency(history?.fromZeroKm?.price0km)"
+						></span>
+					</p>
+					<div class="chart-wrap chart-wrap--vehicle">
+						<canvas x-ref="fromZeroChart" aria-label="Variação percentual desde o 0km" role="img"></canvas>
+					</div>
+				</div>
+				<p
+					class="value-card-status"
+					x-show="history && !historyLoading && !historyError && !history.fromZeroKm"
+					x-cloak
+				>
+					Não há série 0km até hoje para este veículo.
 				</p>
 			</article>
 		</section>
@@ -264,6 +327,29 @@ export const prerender = true;
 	let activeChart = null;
 	/** @type {import('chart.js').Chart | null} */
 	let forecastChart = null;
+	/** @type {import('chart.js').Chart | null} */
+	let fromZeroChart = null;
+
+	const xCrosshair = {
+		id: 'xCrosshair',
+		afterDraw(chart) {
+			const active = chart.tooltip?.getActiveElements?.() ?? [];
+			if (active.length === 0) return;
+			const x = active[0]?.element?.x;
+			if (!Number.isFinite(x)) return;
+			const { top, bottom } = chart.chartArea;
+			const { ctx } = chart;
+			ctx.save();
+			ctx.beginPath();
+			ctx.setLineDash([4, 4]);
+			ctx.lineWidth = 1;
+			ctx.strokeStyle = 'rgba(31, 36, 32, 0.28)';
+			ctx.moveTo(x, top);
+			ctx.lineTo(x, bottom);
+			ctx.stroke();
+			ctx.restore();
+		},
+	};
 
 	/**
 	 * @param {HTMLCanvasElement | undefined} canvas
@@ -289,8 +375,9 @@ export const prerender = true;
 						backgroundColor: palette.soft,
 						fill: true,
 						tension: 0.35,
-						pointRadius: 3,
-						pointHoverRadius: 5,
+						pointRadius: 4,
+						pointHoverRadius: 7,
+						pointHitRadius: 18,
 						borderWidth: 2,
 						borderDash: opts.dashed ? [6, 4] : undefined,
 					},
@@ -300,9 +387,15 @@ export const prerender = true;
 				responsive: true,
 				maintainAspectRatio: false,
 				animation: false,
+				interaction: {
+					mode: 'index',
+					intersect: false,
+				},
 				plugins: {
 					legend: { display: false },
 					tooltip: {
+						intersect: false,
+						mode: 'index',
 						callbacks: {
 							label(context) {
 								const value = Number(context.raw ?? 0);
@@ -366,6 +459,136 @@ export const prerender = true;
 			label: 'Valor estimado',
 			dashed: true,
 		});
+	};
+
+	/**
+	 * @param {HTMLCanvasElement | undefined} canvas
+	 * @param {Array<{ months: number, pct: number, price?: number, label?: string }>} points
+	 * @param {number} [vehicleId]
+	 */
+	window.renderVehicleFromZeroChart = (canvas, points, vehicleId = 1) => {
+		fromZeroChart?.destroy();
+		fromZeroChart = null;
+		if (!canvas || !points?.length) return;
+
+		const palette = VEHICLE_COLORS[vehicleId] ?? VEHICLE_COLORS[1];
+		const data = points
+			.filter((point) => Number.isFinite(point.months) && Number.isFinite(point.pct))
+			.map((point) => ({
+				x: Number(point.months),
+				y: Number(point.pct),
+				price: point.price,
+				period: point.label,
+			}));
+		if (data.length === 0) return;
+
+		const dense = data.length > 36;
+
+		fromZeroChart = new Chart(canvas, {
+			type: 'line',
+			plugins: [xCrosshair],
+			data: {
+				datasets: [
+					{
+						label: 'Variação desde o 0km',
+						data,
+						borderColor: palette.border,
+						backgroundColor: palette.soft,
+						fill: true,
+						tension: 0.35,
+						pointRadius: dense ? 0 : 3,
+						pointHoverRadius: 6,
+						pointHitRadius: 24,
+						borderWidth: 2.5,
+					},
+				],
+			},
+			options: {
+				responsive: true,
+				maintainAspectRatio: false,
+				animation: false,
+				interaction: {
+					mode: 'nearest',
+					intersect: false,
+					axis: 'x',
+				},
+				plugins: {
+					legend: { display: false },
+					tooltip: {
+						intersect: false,
+						mode: 'nearest',
+						axis: 'x',
+						displayColors: false,
+						callbacks: {
+							title(items) {
+								const months = Number(items[0]?.parsed?.x ?? 0);
+								const raw = items[0]?.raw;
+								const period =
+									raw && typeof raw === 'object' && 'period' in raw && raw.period
+										? String(raw.period)
+										: '';
+								const monthLabel = `${months} ${months === 1 ? 'mês' : 'meses'}`;
+								return period ? `${monthLabel} · ${period}` : monthLabel;
+							},
+							label(context) {
+								const raw = context.raw;
+								const value = Number(context.parsed?.y ?? 0);
+								const sign = value > 0 ? '+' : '';
+								const pct = `${sign}${value.toLocaleString('pt-BR', { maximumFractionDigits: 1 })}%`;
+								const price =
+									raw && typeof raw === 'object' && 'price' in raw && raw.price != null
+										? new Intl.NumberFormat('pt-BR', {
+												style: 'currency',
+												currency: 'BRL',
+												maximumFractionDigits: 0,
+											}).format(Number(raw.price))
+										: '';
+								return price ? `${pct} · ${price}` : pct;
+							},
+						},
+					},
+				},
+				scales: {
+					x: {
+						type: 'linear',
+						min: 0,
+						title: {
+							display: true,
+							text: 'Meses',
+							color: '#5c6560',
+							font: { size: 11, weight: 600 },
+						},
+						ticks: {
+							color: '#5c6560',
+							stepSize: 12,
+							callback(value) {
+								if (Number(value) % 12 !== 0) return '';
+								return Number(value);
+							},
+						},
+						grid: { color: 'rgba(31, 36, 32, 0.08)' },
+					},
+					y: {
+						title: {
+							display: true,
+							text: 'Variação %',
+							color: '#5c6560',
+							font: { size: 11, weight: 600 },
+						},
+						ticks: {
+							color: '#5c6560',
+							callback(value) {
+								const num = Number(value);
+								const sign = num > 0 ? '+' : '';
+								return `${sign}${num}%`;
+							},
+						},
+						grid: { color: 'rgba(31, 36, 32, 0.08)' },
+					},
+				},
+			},
+		});
+		fromZeroChart.resize();
 	};
 </script>
 
@@ -510,6 +733,20 @@ export const prerender = true;
 		font-size: 0.875rem;
 	}
 
+	.value-cards {
+		display: grid;
+		grid-template-columns: 1fr;
+		gap: 1rem;
+		margin-top: 1rem;
+	}
+
+	@media (min-width: 720px) {
+		.value-cards {
+			grid-template-columns: 1fr 1fr;
+			align-items: stretch;
+		}
+	}
+
 	.value-card,
 	.chart-card {
 		margin-top: 1rem;
@@ -517,6 +754,10 @@ export const prerender = true;
 		border: 1px solid var(--border);
 		border-radius: 14px;
 		background: var(--surface-raised);
+	}
+
+	.value-cards .value-card {
+		margin-top: 0;
 	}
 
 	.value-card-vehicle {
