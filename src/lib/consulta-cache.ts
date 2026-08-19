@@ -35,7 +35,7 @@ const slug = (value: string | number) =>
 		.replace(/^_|_$/g, '');
 
 export const historyCacheKey = (params: ConsultaParams) =>
-	`${CONSULTA_PREFIX}:history:${slug(params.brand)}:${slug(params.model)}:${slug(params.version || 'x')}:${slug(params.year)}:${slug(params.vehicleId)}`;
+	`${CONSULTA_PREFIX}:history:v3:${slug(params.brand)}:${slug(params.model)}:${slug(params.version || 'x')}:${slug(params.year)}:${slug(params.vehicleId)}`;
 
 export const logCacheKey = (at = new Date()) =>
 	`${CONSULTA_PREFIX}:log:${at.toISOString().replace(/[:.]/g, '-')}:${crypto.randomUUID().slice(0, 8)}`;
